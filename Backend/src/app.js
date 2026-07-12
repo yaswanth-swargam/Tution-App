@@ -33,4 +33,11 @@ app.use(cookieParser());
 // });
 
 app.use('/api/auth',authRoutes)
+
+app.get('/',(req,res)=>{
+    res.json({
+        message: "Backend connected"
+    })
+})
 export default app;
+
