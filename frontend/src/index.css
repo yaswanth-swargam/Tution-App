@@ -1,3 +1,48 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-[#F8FAFC] font-sans text-[#1E293B] antialiased;
+  }
+
+  ::selection {
+    background: rgb(91 75 219 / 0.18);
+  }
+}
+
+@layer components {
+  .panel {
+    @apply rounded-2xl border border-[#E2E8F0] bg-white shadow-sm;
+  }
+
+  .btn {
+    @apply rounded-xl font-medium transition-colors duration-150;
+  }
+
+  .btn-primary {
+    @apply border-transparent bg-[#5B4BDB] text-white shadow-none;
+  }
+
+  .btn-primary:hover {
+    background-color: #4f46c7;
+    border-color: #4f46c7;
+  }
+
+  .btn-primary:focus-visible,
+  .btn:focus-visible {
+    outline: 2px solid #5b4bdb;
+    outline-offset: 2px;
+  }
+
+  .toggle-primary:checked {
+    --tglbg: #5b4bdb;
+  }
+}

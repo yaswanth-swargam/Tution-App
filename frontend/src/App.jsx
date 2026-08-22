@@ -1,16 +1,27 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
-function App() {
-  const [count, setCount] = useState(0)
+import { useEffect } from "react";
+import { useDispatch, useSelector } from "react-redux";
 
-  return (
-    <div className='text-red-500 h-screen'>
-      main app
-    </div>  
-  )
-}
+import AppRouter from "./routes/AppRouter";
+import { checkAuth } from "./store/authActions";
 
-export default App
+const App = () => {
+  const dispatch = useDispatch();
+
+  const { isCheckingAuth } = useSelector((state) => state.auth);
+
+  useEffect(() => {
+    dispatch(checkAuth());
+  }, [dispatch]);
+
+  if (isCheckingAuth) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <span className="loading loading-spinner loading-lg text-primary" />
+      </div>
+    );
+  }
+
+  return <AppRouter />;
+};
+
+export default App;
