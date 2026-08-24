@@ -1,5 +1,5 @@
 import pool from "../lib/db.js";
-
+import {getIO} from '../lib/socket.js'
 export const sendMessage = async (req, res) => {
   const { sectionId } = req.params;
   const { content } = req.body;
@@ -66,7 +66,16 @@ export const sendMessage = async (req, res) => {
       [result.insertId]
     );
 
-    return res.status(201).json(message[0]);
+    const newMessage = message[0];
+
+    const io = getIO();
+
+      io.to(`section:${sectionId}`).emit(
+      "new_message",
+      newMessage
+    );
+
+return res.status(201).json(newMessage);
 
   } catch (error) {
     console.error("Error sending message:", error.message);
