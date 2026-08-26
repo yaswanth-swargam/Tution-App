@@ -1,117 +1,283 @@
 import { useEffect, useState } from "react";
-import { useDispatch, useSelector } from "react-redux";
+import {
+  useDispatch,
+  useSelector,
+} from "react-redux";
 
 import {
-  Hash,
-  Send,
-  Users,
   MessageCircle,
-  ChevronRight,
-  Mail,
-  Shield,
-  User,
-  MessageSquare,
+  ArrowLeft,
+  Users,
 } from "lucide-react";
 
 import { socket } from "../lib/socket.js";
+
+// =========================
+// ASYNC REDUX ACTIONS
+// =========================
 
 import {
   fetchSections,
   fetchMessages,
   sendMessage,
   fetchSectionMembers,
+  fetchAvailableStudents,
+  addStudentToSection,
+  removeStudentFromSection,
+
   fetchDirectConversations,
   fetchDirectMessages,
   sendDirectMessage,
-} from "../store/chatActions";
+
+  createSection,
+  renameSection,
+  deleteSection,
+} from "../store/chatActions.js";
+
+// =========================
+// REDUX SLICE ACTIONS
+// =========================
 
 import {
   setSelectedSection,
-  addMessage,
   setSelectedDirectUser,
+  addMessage,
   addDirectMessage,
-} from "../store/chatSlice";
+  setOnlineUsers,
+} from "../store/chatSlice.js";
+
+// =========================
+// COMPONENTS
+// =========================
+
+import SectionsView from "./community/SectionsView.jsx";
+import SectionChat from "./community/SectionsChat.jsx";
+import DirectChat from "./community/DirectChat.jsx";
+import GroupInfoDrawer from "./community/GroupInfoDrawer.jsx";
 
 const CommunityPage = () => {
   const dispatch = useDispatch();
 
-  const [content, setContent] = useState("");
+  // =========================
+  // LOCAL STATE
+  // =========================
+
+  const [content, setContent] =
+    useState("");
+
+  const [
+    selectedStudentId,
+    setSelectedStudentId,
+  ] = useState("");
+
+  const [
+    showGroupInfo,
+    setShowGroupInfo,
+  ] = useState(false);
+
+  const [
+    showAddStudentModal,
+    setShowAddStudentModal,
+  ] = useState(false);
+
+  // community = sections page
+  // messages = direct conversation list
+  const [
+    communityView,
+    setCommunityView,
+  ] = useState("community");
+
+  // =========================
+  // REDUX STATE
+  // =========================
 
   const {
+    // SECTION CHAT
     sections,
     selectedSection,
     messages,
+
+    // MEMBERS
     members,
+    availableStudents,
+    onlineUsers,
 
-    isLoadingSections,
-    isLoadingMessages,
-    isLoadingMembers,
-    isSendingMessage,
-
+    // DIRECT CHAT
     conversations,
     selectedDirectUser,
     directMessages,
 
+    // SECTION LOADING
+    isLoadingSections,
+    isLoadingMessages,
+    isSendingMessage,
+
+    // MEMBER LOADING
+    isLoadingMembers,
+    isLoadingAvailableStudents,
+    isAddingStudent,
+    isRemovingStudent,
+
+    // DIRECT MESSAGE LOADING
     isLoadingConversations,
     isLoadingDirectMessages,
     isSendingDirectMessage,
-  } = useSelector((state) => state.chat);
+  } = useSelector(
+    (state) => state.chat
+  );
 
-  const { authUser } = useSelector((state) => state.auth);
+  const { authUser } =
+    useSelector(
+      (state) => state.auth
+    );
 
-  const safeMembers = Array.isArray(members) ? members : [];
-  const safeConversations = Array.isArray(conversations)
-    ? conversations
-    : [];
-
-  const safeDirectMessages = Array.isArray(directMessages)
-    ? directMessages
-    : [];
-
-  const isDirectChat = Boolean(selectedDirectUser);
-
-  /* ================= INITIAL FETCH ================= */
+  // =========================
+  // INITIAL DATA FETCH
+  // =========================
 
   useEffect(() => {
     dispatch(fetchSections());
-    dispatch(fetchDirectConversations());
+
+    dispatch(
+      fetchDirectConversations()
+    );
   }, [dispatch]);
 
-  /* ================= SECTION SOCKET ================= */
+  // =========================
+  // SOCKET:
+  // USER IDENTIFICATION
+  // =========================
 
   useEffect(() => {
-    const handleNewMessage = (message) => {
-      if (
-        selectedSection &&
-        message.section_id === selectedSection.id
-      ) {
-        dispatch(addMessage(message));
-      }
+    if (!authUser?.id) return;
+
+    const identifyUser = () => {
+      socket.emit(
+        "user_online",
+        authUser.id
+      );
     };
 
-    socket.on("new_message", handleNewMessage);
+    if (socket.connected) {
+      identifyUser();
+    }
+
+    socket.on(
+      "connect",
+      identifyUser
+    );
 
     return () => {
-      socket.off("new_message", handleNewMessage);
+      socket.off(
+        "connect",
+        identifyUser
+      );
     };
-  }, [dispatch, selectedSection]);
+  }, [authUser?.id]);
 
-  /* ================= DIRECT MESSAGE SOCKET ================= */
+  // =========================
+  // SOCKET:
+  // ONLINE USERS
+  // =========================
 
   useEffect(() => {
-    const handleNewDirectMessage = (message) => {
-      if (
-        selectedDirectUser &&
-        (
-          message.sender_id === selectedDirectUser.id ||
-          message.receiver_id === selectedDirectUser.id
-        )
-      ) {
-        dispatch(addDirectMessage(message));
-      }
+    const handleOnlineUsers =
+      (users) => {
+        dispatch(
+          setOnlineUsers(users)
+        );
+      };
 
-      dispatch(fetchDirectConversations());
+    socket.on(
+      "online_users",
+      handleOnlineUsers
+    );
+
+    return () => {
+      socket.off(
+        "online_users",
+        handleOnlineUsers
+      );
     };
+  }, [dispatch]);
+
+  // =========================
+  // SOCKET:
+  // SECTION MESSAGES
+  // =========================
+
+  useEffect(() => {
+    const handleNewMessage =
+      (message) => {
+        if (
+          selectedSection &&
+          Number(message.section_id) ===
+            Number(selectedSection.id)
+        ) {
+          dispatch(
+            addMessage(message)
+          );
+        }
+      };
+
+    socket.on(
+      "new_message",
+      handleNewMessage
+    );
+
+    return () => {
+      socket.off(
+        "new_message",
+        handleNewMessage
+      );
+    };
+  }, [
+    dispatch,
+    selectedSection,
+  ]);
+
+  // =========================
+  // SOCKET:
+  // DIRECT MESSAGES
+  // =========================
+
+  useEffect(() => {
+    const handleNewDirectMessage =
+      (message) => {
+        if (!authUser?.id) return;
+
+        const otherUserId =
+          Number(message.sender_id) ===
+          Number(authUser.id)
+            ? Number(message.receiver_id)
+            : Number(message.sender_id);
+
+        // Refresh conversation list
+        dispatch(
+          fetchDirectConversations()
+        );
+
+        // Add message only if that chat
+        // is currently open
+        if (
+          selectedDirectUser &&
+          Number(selectedDirectUser.id) ===
+            otherUserId
+        ) {
+          const alreadyExists =
+            directMessages.some(
+              (msg) =>
+                Number(msg.id) ===
+                Number(message.id)
+            );
+
+          if (!alreadyExists) {
+            dispatch(
+              addDirectMessage(message)
+            );
+          }
+        }
+      };
 
     socket.on(
       "new_direct_message",
@@ -124,760 +290,740 @@ const CommunityPage = () => {
         handleNewDirectMessage
       );
     };
-  }, [dispatch, selectedDirectUser]);
+  }, [
+    dispatch,
+    authUser?.id,
+    selectedDirectUser,
+    directMessages,
+  ]);
 
-  /* ================= SELECT SECTION ================= */
+  // =========================
+  // OPEN MESSAGES PAGE
+  // =========================
 
-  const handleSelectSection = (section) => {
-    // Leave direct chat
-    dispatch(setSelectedDirectUser(null));
-
-    // Select section
-    dispatch(setSelectedSection(section));
-
-    dispatch(fetchMessages(section.id));
-    dispatch(fetchSectionMembers(section.id));
-
-    socket.emit("join_section", section.id);
-
-    console.log(`Joined section: ${section.id}`);
-  };
-
-  /* ================= SELECT DIRECT USER ================= */
-
-  const handleSelectDirectUser = (user) => {
-    // Leave section chat
-    dispatch(setSelectedSection(null));
-
-    // Select user
-    dispatch(setSelectedDirectUser(user));
-
-    dispatch(fetchDirectMessages(user.id));
-
-    console.log(`Opened direct chat with: ${user.full_name}`);
-  };
-
-  /* ================= SEND MESSAGE ================= */
-
-  const handleSendMessage = (e) => {
-    e.preventDefault();
-
-    if (!content.trim()) return;
-
-    if (isDirectChat) {
+  const handleOpenDirectMessages =
+    () => {
       dispatch(
-        sendDirectMessage(
-          selectedDirectUser.id,
-          content
+        setSelectedSection(null)
+      );
+
+      dispatch(
+        setSelectedDirectUser(null)
+      );
+
+      setShowGroupInfo(false);
+
+      setShowAddStudentModal(false);
+
+      setCommunityView("messages");
+
+      dispatch(
+        fetchDirectConversations()
+      );
+    };
+
+  // =========================
+  // SELECT SECTION
+  // =========================
+
+  const handleSelectSection =
+    (section) => {
+      setCommunityView("community");
+
+      // Close direct chat
+      dispatch(
+        setSelectedDirectUser(null)
+      );
+
+      // Open section
+      dispatch(
+        setSelectedSection(section)
+      );
+
+      // Fetch messages
+      dispatch(
+        fetchMessages(section.id)
+      );
+
+      // Fetch members
+      dispatch(
+        fetchSectionMembers(
+          section.id
         )
       );
-    } else if (selectedSection) {
+
+      // Admin:
+      // fetch available students
+      if (
+        authUser?.role === "admin"
+      ) {
+        dispatch(
+          fetchAvailableStudents(
+            section.id
+          )
+        );
+      }
+
+      // Join section room
+      const joinSection = () => {
+        socket.emit(
+          "join_section",
+          section.id
+        );
+      };
+
+      if (socket.connected) {
+        joinSection();
+      } else {
+        socket.once(
+          "connect",
+          joinSection
+        );
+      }
+
+      setSelectedStudentId("");
+
+      setShowGroupInfo(false);
+
+      setShowAddStudentModal(false);
+    };
+
+  // =========================
+  // SELECT DIRECT USER
+  // =========================
+
+  const handleSelectDirectUser =
+    (user) => {
+      // Close section
+      dispatch(
+        setSelectedSection(null)
+      );
+
+      // Select direct user
+      dispatch(
+        setSelectedDirectUser(user)
+      );
+
+      // Fetch messages
+      dispatch(
+        fetchDirectMessages(user.id)
+      );
+
+      setShowGroupInfo(false);
+
+      setShowAddStudentModal(false);
+    };
+
+  // =========================
+  // BACK TO COMMUNITY HOME
+  // =========================
+
+  const handleBackToCommunity =
+    () => {
+      dispatch(
+        setSelectedSection(null)
+      );
+
+      dispatch(
+        setSelectedDirectUser(null)
+      );
+
+      setShowGroupInfo(false);
+
+      setShowAddStudentModal(false);
+
+      setCommunityView("community");
+
+      setContent("");
+    };
+
+  // =========================
+  // BACK TO DIRECT MESSAGE LIST
+  // =========================
+
+  const handleBackToMessages =
+    () => {
+      dispatch(
+        setSelectedDirectUser(null)
+      );
+
+      setCommunityView("messages");
+
+      dispatch(
+        fetchDirectConversations()
+      );
+    };
+
+  // =========================
+  // SEND SECTION MESSAGE
+  // =========================
+
+  const handleSendMessage =
+    (e) => {
+      e.preventDefault();
+
+      if (
+        !content.trim() ||
+        !selectedSection
+      ) {
+        return;
+      }
+
+      const messageContent =
+        content.trim();
+
+      setContent("");
+
       dispatch(
         sendMessage(
           selectedSection.id,
-          content
+          messageContent
         )
       );
-    }
+    };
 
-    setContent("");
-  };
+  // =========================
+  // SEND DIRECT MESSAGE
+  // =========================
 
-  /* ================= MEMBER MESSAGE ================= */
+  const handleSendDirectMessage =
+    (messageContent) => {
+      if (
+        !selectedDirectUser ||
+        !messageContent.trim()
+      ) {
+        return;
+      }
 
-  const handleMemberMessage = (member) => {
-    if (!authUser || member.id === authUser.id) return;
+      dispatch(
+        sendDirectMessage(
+          selectedDirectUser.id,
+          messageContent.trim()
+        )
+      );
+    };
 
-    const canMessage =
-      (authUser.role === "admin" &&
-        member.role === "student") ||
-      (authUser.role === "student" &&
-        member.role === "admin");
+  // =========================
+  // CREATE SECTION
+  // =========================
 
-    if (!canMessage) return;
+  const handleCreateSection =
+    async (name) => {
+      if (!name?.trim()) return;
 
-    handleSelectDirectUser(member);
-  };
+      try {
+        await dispatch(
+          createSection(
+            name.trim()
+          )
+        );
+      } catch (error) {
+        console.error(
+          "Failed to create section:",
+          error
+        );
+      }
+    };
 
-  /* ================= MEMBER POPOVER ================= */
+  // =========================
+  // RENAME SECTION
+  // =========================
 
-  const MemberProfilePopover = ({ member }) => {
-    const isAdmin = member.role === "admin";
+  const handleRenameSection =
+    async (name) => {
+      if (
+        !selectedSection ||
+        !name?.trim()
+      ) {
+        return;
+      }
 
-    const canMessage =
-      authUser &&
-      member.id !== authUser.id &&
-      (
-        (authUser.role === "admin" &&
-          member.role === "student") ||
-        (authUser.role === "student" &&
-          member.role === "admin")
+      try {
+        const updatedSection =
+          await dispatch(
+            renameSection(
+              selectedSection.id,
+              name.trim()
+            )
+          );
+
+        dispatch(
+          setSelectedSection(
+            updatedSection
+          )
+        );
+      } catch (error) {
+        console.error(
+          "Failed to rename section:",
+          error
+        );
+
+        throw error;
+      }
+    };
+
+  // =========================
+  // DELETE SECTION
+  // =========================
+
+  const handleDeleteSection =
+    async () => {
+      if (!selectedSection) return;
+
+      const shouldDelete =
+        window.confirm(
+          `Are you sure you want to delete "${selectedSection.name}"?`
+        );
+
+      if (!shouldDelete) return;
+
+      try {
+        await dispatch(
+          deleteSection(
+            selectedSection.id
+          )
+        );
+
+        dispatch(
+          setSelectedSection(null)
+        );
+
+        setShowGroupInfo(false);
+
+        setCommunityView("community");
+
+      } catch (error) {
+        console.error(
+          "Failed to delete section:",
+          error
+        );
+
+        throw error;
+      }
+    };
+
+  // =========================
+  // ADD STUDENT
+  // =========================
+
+  const handleAddStudent =
+    () => {
+      if (
+        !selectedSection ||
+        !selectedStudentId
+      ) {
+        return;
+      }
+
+      dispatch(
+        addStudentToSection(
+          selectedSection.id,
+          Number(selectedStudentId)
+        )
       );
 
-    return (
-<div className="pointer-events-none absolute right-2 top-full z-50 mt-2 w-64 opacity-0 transition-all duration-200 group-hover:pointer-events-auto group-hover:opacity-100">        <div className="rounded-2xl border border-base-300 bg-base-100 p-5 shadow-xl">
+      setSelectedStudentId("");
 
-          <div className="flex items-center gap-3">
+      setShowAddStudentModal(false);
+    };
 
-            {member.profile_pic ? (
-              <img
-                src={member.profile_pic}
-                alt={member.full_name}
-                className="h-14 w-14 rounded-full object-cover"
-              />
-            ) : (
-              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-lg font-semibold text-primary">
-                {member.full_name
-                  ?.charAt(0)
-                  ?.toUpperCase()}
-              </div>
-            )}
+  // =========================
+  // REMOVE STUDENT
+  // =========================
 
-            <div className="min-w-0">
-              <h3 className="truncate font-semibold">
-                {member.full_name}
-              </h3>
+  const handleRemoveStudent =
+    (userId) => {
+      if (!selectedSection) {
+        return;
+      }
 
-              <div className="flex items-center gap-1 text-xs text-base-content/50">
-                {isAdmin ? (
-                  <Shield size={13} />
-                ) : (
-                  <User size={13} />
-                )}
+      dispatch(
+        removeStudentFromSection(
+          selectedSection.id,
+          userId
+        )
+      );
+    };
 
-                <span>
-                  {isAdmin ? "Admin" : "Student"}
-                </span>
-              </div>
-            </div>
-
-          </div>
-
-          <div className="mt-4 flex items-center gap-2 text-sm text-base-content/60">
-            <Mail size={15} />
-
-            <span className="truncate">
-              {member.email}
-            </span>
-          </div>
-
-          <div className="mt-5">
-
-            {canMessage ? (
-              <button
-                type="button"
-                onClick={() =>
-                  handleMemberMessage(member)
-                }
-                className="btn btn-primary btn-sm w-full gap-2"
-              >
-                <MessageCircle size={16} />
-                Message
-              </button>
-            ) : (
-              <div className="rounded-xl bg-base-200 px-3 py-2 text-center text-xs text-base-content/50">
-                Private messaging unavailable
-              </div>
-            )}
-
-          </div>
-
-        </div>
-      </div>
-    );
-  };
-
-  /* ================= CHAT TITLE ================= */
-
-  const activeChatName = isDirectChat
-    ? selectedDirectUser.full_name
-    : selectedSection?.name;
-
-  const activeMessages = isDirectChat
-    ? safeDirectMessages
-    : messages;
-
-  const isLoadingActiveMessages = isDirectChat
-    ? isLoadingDirectMessages
-    : isLoadingMessages;
-
-  const isSendingActiveMessage = isDirectChat
-    ? isSendingDirectMessage
-    : isSendingMessage;
-
-  const hasActiveChat =
-    selectedSection || selectedDirectUser;
+  // =========================
+  // RENDER
+  // =========================
 
   return (
-    <div className="h-[calc(100vh-120px)] min-h-[650px]">
+    <div className="h-full">
 
-      {/* PAGE HEADER */}
+      {/* =========================
+          COMMUNITY HOME
+      ========================= */}
 
-      <div className="mb-6">
-        <p className="text-sm font-medium text-primary">
-          COMMUNITY
-        </p>
+      {!selectedSection &&
+        !selectedDirectUser &&
+        communityView === "community" && (
+          <SectionsView
+  sections={sections}
+  isLoadingSections={isLoadingSections}
+  onSelectSection={handleSelectSection}
+  authUser={authUser}
+  onCreateSection={handleCreateSection}
 
-        <h1 className="mt-1 text-3xl font-bold tracking-tight">
-          Community Chat
-        </h1>
+  conversations={conversations}
+  isLoadingConversations={isLoadingConversations}
+  onSelectDirectUser={handleSelectDirectUser}
+/>
+        )}
 
-        <p className="mt-2 text-sm text-base-content/60">
-          Connect, discuss, and learn together.
-        </p>
-      </div>
 
-      {/* MAIN LAYOUT */}
+      {/* =========================
+          DIRECT MESSAGE LIST
+      ========================= */}
 
-      <div className="grid h-[calc(100%-100px)] min-h-[600px] grid-cols-1 overflow-hidden rounded-2xl border border-base-300 bg-base-100 shadow-sm lg:grid-cols-[260px_1fr_240px]">
+      {!selectedSection &&
+        !selectedDirectUser &&
+        communityView === "messages" && (
 
-        {/* ================= LEFT SIDEBAR ================= */}
+          <div className="flex-1 flex flex-col h-full">
 
-        <aside className="flex flex-col border-r border-base-300">
+            {/* HEADER */}
 
-          {/* SECTIONS HEADER */}
+            <div className="border-b border-base-300 px-6 py-6 md:px-8">
 
-          <div className="border-b border-base-300 p-5">
-            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-4">
 
-              <MessageCircle
-                size={19}
-                className="text-primary"
-              />
-
-              <h2 className="font-semibold">
-                Your Sections
-              </h2>
-
-            </div>
-
-            <p className="mt-1 text-xs text-base-content/50">
-              Choose a group to start chatting
-            </p>
-          </div>
-
-          {/* SECTIONS */}
-
-          <div className="max-h-[40%] overflow-y-auto p-3">
-
-            {isLoadingSections && (
-              <div className="space-y-2">
-                {[1, 2, 3].map((item) => (
-                  <div
-                    key={item}
-                    className="h-12 animate-pulse rounded-xl bg-base-200"
-                  />
-                ))}
-              </div>
-            )}
-
-            {!isLoadingSections &&
-              sections.map((section) => {
-                const isActive =
-                  selectedSection?.id === section.id;
-
-                return (
-                  <button
-                    key={section.id}
-                    type="button"
-                    onClick={() =>
-                      handleSelectSection(section)
-                    }
-                    className={`group mb-1 flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition-all ${
-                      isActive
-                        ? "bg-primary text-primary-content shadow-sm"
-                        : "hover:bg-base-200"
-                    }`}
-                  >
-                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-base-200/50">
-                      <Hash size={17} />
-                    </div>
-
-                    <span className="flex-1 truncate text-sm font-medium">
-                      {section.name}
-                    </span>
-
-                    <ChevronRight
-                      size={16}
-                      className={
-                        isActive
-                          ? "translate-x-1"
-                          : "opacity-40"
-                      }
-                    />
-
-                  </button>
-                );
-              })}
-
-          </div>
-
-          {/* DIRECT MESSAGES */}
-
-          <div className="border-t border-base-300">
-
-            <div className="flex items-center gap-2 px-5 py-4">
-
-              <MessageSquare
-                size={18}
-                className="text-primary"
-              />
-
-              <h2 className="font-semibold">
-                Direct Messages
-              </h2>
-
-            </div>
-
-            <div className="overflow-y-auto px-3 pb-4">
-
-              {isLoadingConversations && (
-                <div className="space-y-2">
-                  {[1, 2].map((item) => (
-                    <div
-                      key={item}
-                      className="h-12 animate-pulse rounded-xl bg-base-200"
-                    />
-                  ))}
-                </div>
-              )}
-
-              {!isLoadingConversations &&
-                safeConversations.map((user) => {
-                  const isActive =
-                    selectedDirectUser?.id === user.id;
-
-                  return (
-                    <button
-                      key={user.id}
-                      type="button"
-                      onClick={() =>
-                        handleSelectDirectUser(user)
-                      }
-                      className={`mb-1 flex w-full items-center gap-3 rounded-xl p-2 text-left transition ${
-                        isActive
-                          ? "bg-primary text-primary-content"
-                          : "hover:bg-base-200"
-                      }`}
-                    >
-
-                      {user.profile_pic ? (
-                        <img
-                          src={user.profile_pic}
-                          alt={user.full_name}
-                          className="h-9 w-9 rounded-full object-cover"
-                        />
-                      ) : (
-                        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-base-200 text-sm font-semibold">
-                          {user.full_name
-                            ?.charAt(0)
-                            ?.toUpperCase()}
-                        </div>
-                      )}
-
-                      <div className="min-w-0 flex-1">
-
-                        <p className="truncate text-sm font-medium">
-                          {user.full_name}
-                        </p>
-
-                        <p
-                          className={`text-xs ${
-                            isActive
-                              ? "text-primary-content/70"
-                              : "text-base-content/50"
-                          }`}
-                        >
-                          {user.role === "admin"
-                            ? "Admin"
-                            : "Student"}
-                        </p>
-
-                      </div>
-
-                    </button>
-                  );
-                })}
-
-              {!isLoadingConversations &&
-                safeConversations.length === 0 && (
-                  <p className="px-2 py-3 text-center text-xs text-base-content/50">
-                    No conversations yet.
-                  </p>
-                )}
-
-            </div>
-          </div>
-
-        </aside>
-
-        {/* ================= MAIN CHAT ================= */}
-
-        <main className="flex min-w-0 flex-col">
-
-          {/* CHAT HEADER */}
-
-          <div className="flex items-center justify-between border-b border-base-300 px-5 py-4">
-
-            {hasActiveChat ? (
-              <div className="flex items-center gap-3">
-
-                {isDirectChat ? (
-                  selectedDirectUser.profile_pic ? (
-                    <img
-                      src={selectedDirectUser.profile_pic}
-                      alt={selectedDirectUser.full_name}
-                      className="h-10 w-10 rounded-full object-cover"
-                    />
-                  ) : (
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 font-semibold text-primary">
-                      {selectedDirectUser.full_name
-                        ?.charAt(0)
-                        ?.toUpperCase()}
-                    </div>
-                  )
-                ) : (
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                    <Hash size={20} />
-                  </div>
-                )}
+                <button
+                  onClick={
+                    handleBackToCommunity
+                  }
+                  className="btn btn-ghost btn-circle"
+                  aria-label="Back to community"
+                >
+                  <ArrowLeft className="w-5 h-5" />
+                </button>
 
                 <div>
 
-                  <h2 className="font-semibold">
-                    {activeChatName}
-                  </h2>
+                  <div className="flex items-center gap-3">
 
-                  <p className="text-xs text-base-content/50">
-                    {isDirectChat
-                      ? selectedDirectUser.role === "admin"
-                        ? "Admin"
-                        : "Student"
-                      : `${safeMembers.length} members`}
+                    <MessageCircle className="w-7 h-7 text-primary" />
+
+                    <h1 className="text-3xl font-bold text-base-content">
+
+                      Messages
+
+                    </h1>
+
+                  </div>
+
+                  <p className="text-sm text-base-content/60 mt-1">
+
+                    Your direct conversations
+
                   </p>
 
                 </div>
 
               </div>
-            ) : (
-              <div>
-                <h2 className="font-semibold">
-                  Select a chat
-                </h2>
 
-                <p className="text-xs text-base-content/50">
-                  Choose a section or conversation.
-                </p>
-              </div>
-            )}
+            </div>
 
-            {hasActiveChat && (
-              <div className="hidden items-center gap-2 text-xs text-base-content/50 sm:flex">
-                <span className="h-2 w-2 rounded-full bg-success" />
-                Live
-              </div>
-            )}
 
-          </div>
+            {/* CONVERSATION LIST */}
 
-          {/* MESSAGES */}
+            <div className="flex-1 overflow-y-auto px-6 py-6 md:px-8">
 
-          <div className="flex-1 overflow-y-auto bg-base-200/30 px-5 py-6">
+              {isLoadingConversations ? (
 
-            {!hasActiveChat && (
-              <div className="flex h-full flex-col items-center justify-center text-center">
+                <div className="flex justify-center py-12">
 
-                <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-base-200">
-                  <MessageCircle
-                    size={30}
-                    className="text-base-content/40"
-                  />
-                </div>
-
-                <h3 className="font-semibold">
-                  Welcome to Community
-                </h3>
-
-                <p className="mt-2 max-w-xs text-sm text-base-content/50">
-                  Select a section or direct conversation
-                  to start chatting.
-                </p>
-
-              </div>
-            )}
-
-            {hasActiveChat &&
-              isLoadingActiveMessages && (
-                <div className="space-y-5">
-
-                  {[1, 2, 3, 4].map((item) => (
-                    <div
-                      key={item}
-                      className="flex gap-3"
-                    >
-                      <div className="h-9 w-9 animate-pulse rounded-full bg-base-300" />
-
-                      <div className="space-y-2">
-                        <div className="h-3 w-24 animate-pulse rounded bg-base-300" />
-                        <div className="h-10 w-56 animate-pulse rounded-xl bg-base-300" />
-                      </div>
-                    </div>
-                  ))}
+                  <span className="loading loading-spinner loading-lg text-primary" />
 
                 </div>
-              )}
 
-            {hasActiveChat &&
-              !isLoadingActiveMessages &&
-              activeMessages.length === 0 && (
-                <div className="flex h-full flex-col items-center justify-center text-center">
+              ) : conversations.length === 0 ? (
 
-                  <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-                    <MessageCircle size={26} />
-                  </div>
+                <div className="flex flex-col items-center justify-center py-16 text-center">
 
-                  <h3 className="font-semibold">
-                    No messages yet
+                  <MessageCircle className="w-16 h-16 text-base-content/20 mb-4" />
+
+                  <h3 className="text-lg font-semibold text-base-content">
+
+                    No conversations yet
+
                   </h3>
 
-                  <p className="mt-2 text-sm text-base-content/50">
-                    Start the conversation.
+                  <p className="text-sm text-base-content/50 mt-2 max-w-sm">
+
+                    Your direct conversations will appear here once you send or receive a message.
+
                   </p>
 
                 </div>
-              )}
 
-            {hasActiveChat &&
-              !isLoadingActiveMessages &&
-              activeMessages.map((message) => {
-                const isOwnMessage =
-                  message.sender_id === authUser?.id;
+              ) : (
 
-                return (
-                  <div
-                    key={message.id}
-                    className={`mb-5 flex gap-3 ${
-                      isOwnMessage
-                        ? "flex-row-reverse"
-                        : ""
-                    }`}
-                  >
+                <div className="max-w-3xl space-y-2">
 
-                    {message.profile_pic ? (
-                      <img
-                        src={message.profile_pic}
-                        alt={message.full_name}
-                        className="h-9 w-9 shrink-0 rounded-full object-cover"
-                      />
-                    ) : (
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
-                        {message.full_name
-                          ?.charAt(0)
-                          ?.toUpperCase()}
-                      </div>
-                    )}
+                  {conversations.map(
+                    (user) => {
 
-                    <div
-                      className={`min-w-0 ${
-                        isOwnMessage
-                          ? "items-end"
-                          : ""
-                      }`}
-                    >
+                      const isOnline =
+                        onlineUsers.includes(
+                          Number(user.id)
+                        );
 
-                      <div
-                        className={`mb-1 flex items-center gap-2 ${
-                          isOwnMessage
-                            ? "justify-end"
-                            : ""
-                        }`}
-                      >
-                        <span className="text-sm font-semibold">
-                          {message.full_name}
-                        </span>
+                      return (
 
-                        <span className="text-xs text-base-content/40">
-                          {new Date(
-                            message.created_at
-                          ).toLocaleTimeString([], {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
-                        </span>
-                      </div>
+                        <button
+                          key={user.id}
 
-                      <div
-                        className={`max-w-xl rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-sm ${
-                          isOwnMessage
-                            ? "rounded-tr-sm bg-primary text-primary-content"
-                            : "rounded-tl-sm bg-base-100"
-                        }`}
-                      >
-                        {message.content}
-                      </div>
+                          onClick={() =>
+                            handleSelectDirectUser(
+                              user
+                            )
+                          }
 
-                    </div>
+                          className="w-full flex items-center gap-4 p-4 rounded-xl border border-base-300 bg-base-100 hover:bg-base-200 transition text-left"
+                        >
 
-                  </div>
-                );
-              })}
+                          {/* PROFILE */}
 
-          </div>
+                          <div className="relative">
 
-          {/* MESSAGE INPUT */}
+                            {user.profile_pic ? (
 
-          {hasActiveChat && (
-            <form
-              onSubmit={handleSendMessage}
-              className="border-t border-base-300 bg-base-100 p-4"
-            >
+                              <img
+                                src={
+                                  user.profile_pic
+                                }
+                                alt={
+                                  user.full_name
+                                }
+                                className="w-12 h-12 rounded-full object-cover"
+                              />
 
-              <div className="flex items-center gap-3 rounded-xl border border-base-300 bg-base-100 px-3 py-2 focus-within:border-primary">
+                            ) : (
 
-                <input
-                  type="text"
-                  value={content}
-                  onChange={(e) =>
-                    setContent(e.target.value)
-                  }
-                  placeholder={`Message ${activeChatName}`}
-                  className="h-10 flex-1 bg-transparent px-2 text-sm outline-none"
-                />
+                              <div className="w-12 h-12 rounded-full bg-primary/10 text-primary flex items-center justify-center font-semibold text-lg">
 
-                <button
-                  type="submit"
-                  disabled={
-                    isSendingActiveMessage ||
-                    !content.trim()
-                  }
-                  className="btn btn-primary btn-sm rounded-lg"
-                >
-                  {isSendingActiveMessage ? (
-                    <span className="loading loading-spinner loading-sm" />
-                  ) : (
-                    <>
-                      <Send size={16} />
+                                {user.full_name
+                                  ?.charAt(0)
+                                  ?.toUpperCase()}
 
-                      <span className="hidden sm:inline">
-                        Send
-                      </span>
-                    </>
+                              </div>
+
+                            )}
+
+                            {/* ONLINE INDICATOR */}
+
+                            {isOnline && (
+
+                              <span className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-success rounded-full border-2 border-base-100" />
+
+                            )}
+
+                          </div>
+
+
+                          {/* USER INFO */}
+
+                          <div className="flex-1 min-w-0">
+
+                            <div className="flex items-center gap-2">
+
+                              <h3 className="font-semibold truncate">
+
+                                {user.full_name}
+
+                              </h3>
+
+                              {isOnline && (
+
+                                <span className="text-xs text-success">
+
+                                  Online
+
+                                </span>
+
+                              )}
+
+                            </div>
+
+                            <p className="text-sm text-base-content/50 truncate">
+
+                              {user.email}
+
+                            </p>
+
+                          </div>
+
+                          <MessageCircle className="w-5 h-5 text-base-content/40" />
+
+                        </button>
+
+                      );
+                    }
                   )}
-                </button>
 
-              </div>
+                </div>
 
-            </form>
-          )}
-
-        </main>
-
-        {/* ================= MEMBERS ================= */}
-
-<aside className="relative hidden overflow-visible border-l border-base-300 xl:flex xl:flex-col">
-          <div className="border-b border-base-300 p-5">
-
-            <div className="flex items-center gap-2">
-
-              <Users
-                size={18}
-                className="text-primary"
-              />
-
-              <h2 className="font-semibold">
-                Members
-              </h2>
-
-              {selectedSection && (
-                <span className="ml-auto rounded-full bg-base-200 px-2 py-0.5 text-xs text-base-content/60">
-                  {safeMembers.length}
-                </span>
               )}
 
             </div>
 
           </div>
 
-          <div className="flex-1 overflow-y-auto p-3">
+        )}
 
-            {!selectedSection && (
-              <p className="p-3 text-center text-sm text-base-content/50">
-                Select a section to see members.
-              </p>
-            )}
 
-            {selectedSection &&
-              isLoadingMembers && (
-                <div className="space-y-3">
-                  {[1, 2, 3].map((item) => (
-                    <div
-                      key={item}
-                      className="flex items-center gap-3 p-2"
-                    >
-                      <div className="h-9 w-9 animate-pulse rounded-full bg-base-200" />
+      {/* =========================
+          SECTION CHAT
+      ========================= */}
 
-                      <div className="h-3 w-24 animate-pulse rounded bg-base-200" />
-                    </div>
-                  ))}
-                </div>
-              )}
+      {selectedSection && (
 
-            {selectedSection &&
-              !isLoadingMembers &&
-              safeMembers.map((member) => (
-                <div
-                  key={member.id}
-                  className="group relative flex items-center gap-3 rounded-xl p-2 transition hover:bg-base-200"
-                >
+        <SectionChat
+          section={selectedSection}
+          messages={messages}
+          content={content}
+          onContentChange={
+            setContent
+          }
+          onSendMessage={
+            handleSendMessage
+          }
+          isLoadingMessages={
+            isLoadingMessages
+          }
+          isSendingMessage={
+            isSendingMessage
+          }
+          authUser={authUser}
+          onBack={
+            handleBackToCommunity
+          }
+          onShowGroupInfo={() =>
+            setShowGroupInfo(true)
+          }
+        />
 
-                  {member.profile_pic ? (
-                    <img
-                      src={member.profile_pic}
-                      alt={member.full_name}
-                      className="h-9 w-9 rounded-full object-cover"
-                    />
-                  ) : (
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-secondary/10 text-sm font-semibold text-secondary">
-                      {member.full_name
-                        ?.charAt(0)
-                        ?.toUpperCase()}
-                    </div>
-                  )}
+      )}
 
-                  <div className="min-w-0">
 
-                    <p className="truncate text-sm font-medium">
-                      {member.full_name}
-                    </p>
+      {/* =========================
+          DIRECT CHAT
+      ========================= */}
 
-                    <p className="truncate text-xs text-base-content/50">
-                      {member.role === "admin"
-                        ? "Admin"
-                        : "Student"}
-                    </p>
+      {selectedDirectUser && (
 
-                  </div>
+        <DirectChat
+          selectedUser={
+            selectedDirectUser
+          }
+          messages={
+            directMessages
+          }
+          authUser={
+            authUser
+          }
 
-                  <MemberProfilePopover
-                    member={member}
-                  />
+          onBack={
+            handleBackToMessages
+          }
 
-                </div>
-              ))}
+          onSendMessage={
+            handleSendDirectMessage
+          }
 
-            {selectedSection &&
-              !isLoadingMembers &&
-              safeMembers.length === 0 && (
-                <p className="p-4 text-center text-sm text-base-content/50">
-                  No members found.
-                </p>
-              )}
+          isLoading={
+            isLoadingDirectMessages
+          }
 
-          </div>
+          isSending={
+            isSendingDirectMessage
+          }
+        />
 
-        </aside>
+      )}
 
-      </div>
+
+      {/* =========================
+          GROUP INFO
+      ========================= */}
+
+      {selectedSection &&
+        showGroupInfo && (
+
+          <GroupInfoDrawer
+            section={selectedSection}
+
+            members={members}
+
+            isLoadingMembers={
+              isLoadingMembers
+            }
+
+            onlineUsers={
+              onlineUsers
+            }
+
+            authUser={
+              authUser
+            }
+
+            availableStudents={
+              availableStudents
+            }
+
+            isLoadingAvailableStudents={
+              isLoadingAvailableStudents
+            }
+
+            selectedStudentId={
+              selectedStudentId
+            }
+
+            onSelectedStudentChange={
+              setSelectedStudentId
+            }
+
+            onAddStudent={
+              handleAddStudent
+            }
+
+            isAddingStudent={
+              isAddingStudent
+            }
+
+            onRemoveStudent={
+              handleRemoveStudent
+            }
+
+            isRemovingStudent={
+              isRemovingStudent
+            }
+
+            onRenameSection={
+              handleRenameSection
+            }
+
+            onDeleteSection={
+              handleDeleteSection
+            }
+
+            onClose={() =>
+              setShowGroupInfo(false)
+            }
+
+            showAddStudentModal={
+              showAddStudentModal
+            }
+
+            onShowAddStudentModal={
+              setShowAddStudentModal
+            }
+          />
+
+        )}
+
     </div>
   );
 };

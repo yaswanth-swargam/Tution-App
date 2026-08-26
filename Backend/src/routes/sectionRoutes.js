@@ -3,24 +3,67 @@ import express from "express";
 import {
   sections,
   getSectionById,
+  createSection,
   renameSection,
   addStudent,
   removeStudent,
-  sectionMembers
-
+  sectionMembers,
+  getAvailableStudents,
+  deleteSection
 } from "../controllers/section.controller.js";
 
 import protectRoute from "../middleware/auth.middleware.js";
 
 const router = express.Router();
 
+// Get all accessible sections
 router.get("/", protectRoute, sections);
 
-router.get("/:id", protectRoute, getSectionById);
+// Create a new section/group
+router.post("/", protectRoute, createSection);
 
-router.put("/:id", protectRoute, renameSection);
+// Get available students for a section
+router.get(
+  "/:id/available-students",
+  protectRoute,
+  getAvailableStudents
+);
 
-router.post('/:id/members',protectRoute,addStudent)
-router.delete('/:id/members/:userId',protectRoute,removeStudent)
-router.get('/:id/members',protectRoute,sectionMembers)
+// Get section members
+router.get(
+  "/:id/members",
+  protectRoute,
+  sectionMembers
+);
+
+// Add student to section
+router.post(
+  "/:id/members",
+  protectRoute,
+  addStudent
+);
+
+// Remove student from section
+router.delete(
+  "/:id/members/:userId",
+  protectRoute,
+  removeStudent
+);
+
+router.delete("/:id", protectRoute, deleteSection);
+
+// Get section by ID
+router.get(
+  "/:id",
+  protectRoute,
+  getSectionById
+);
+
+// Rename section
+router.put(
+  "/:id",
+  protectRoute,
+  renameSection
+);
+
 export default router;

@@ -19,6 +19,15 @@ const initialState = {
   isLoadingConversations: false,
   isLoadingDirectMessages: false,
   isSendingDirectMessage: false,
+
+
+
+  availableStudents: [],
+isLoadingAvailableStudents: false,
+isAddingStudent: false,
+isRemovingStudent: false,
+
+    onlineUsers: [],
 };
 
 const chatSlice = createSlice({
@@ -76,7 +85,15 @@ setDirectMessages: (state, action) => {
 },
 
 addDirectMessage: (state, action) => {
-  state.directMessages.push(action.payload);
+  const incomingMessage = action.payload;
+
+  const alreadyExists = state.directMessages.some(
+    (message) => Number(message.id) === Number(incomingMessage.id)
+  );
+
+  if (!alreadyExists) {
+    state.directMessages.push(incomingMessage);
+  }
 },
 
 setLoadingConversations: (state, action) => {
@@ -89,6 +106,28 @@ setLoadingDirectMessages: (state, action) => {
 
 setSendingDirectMessage: (state, action) => {
   state.isSendingDirectMessage = action.payload;
+},
+
+
+
+setAvailableStudents: (state, action) => {
+  state.availableStudents = action.payload;
+},
+
+setLoadingAvailableStudents: (state, action) => {
+  state.isLoadingAvailableStudents = action.payload;
+},
+
+setAddingStudent: (state, action) => {
+  state.isAddingStudent = action.payload;
+},
+
+setRemovingStudent: (state, action) => {
+  state.isRemovingStudent = action.payload;
+},
+
+  setOnlineUsers: (state, action) => {
+  state.onlineUsers = action.payload;
 },
   },
 });
@@ -110,6 +149,13 @@ export const {
   setLoadingConversations,
   setLoadingDirectMessages,
   setSendingDirectMessage,
+
+
+  setAvailableStudents,
+setLoadingAvailableStudents,
+setAddingStudent,
+setRemovingStudent,
+    setOnlineUsers,
 } = chatSlice.actions;
 
 export default chatSlice.reducer;

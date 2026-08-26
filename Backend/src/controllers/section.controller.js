@@ -303,3 +303,194 @@ export const sectionMembers = async (req, res) => {
     });
   }
 };
+
+
+
+export const getAvailableStudents = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    // Only admin can access this
+    if (req.user.role !== "admin") {
+      return res.status(403).json({
+        message: "You are not allowed to access this resource",
+      });
+    }
+
+    // Check whether section exists
+    const [section] = await pool.query(
+      "SELECT id FROM sections WHERE id = ?",
+      [id]
+    );
+
+    if (section.length === 0) {
+      return res.status(404).json({
+        message: "Section not found",
+      });
+    }
+
+    // Get students who are NOT already members
+    const [students] = await pool.query(
+      `
+      SELECT
+        id,
+        full_name,
+        email,
+        profile_pic,
+        role
+      FROM users
+      WHERE role = "student"
+        AND id NOT IN (
+          SELECT user_id
+          FROM section_members
+          WHERE section_id = ?
+        )
+      ORDER BY full_name ASC
+      `,
+      [id]
+    );
+
+    return res.status(200).json(students);
+
+  } catch (error) {
+    console.error(
+      "Error fetching available students:",
+      error.message
+    );
+
+    return res.status(500).json({
+      message: "Failed to fetch available students",
+    });
+  }
+};
+
+
+
+
+
+
+
+
+
+export const createSection = async (req, res) => {
+  const { name } = req.body;
+  const {id}=req.user;
+
+  try {
+    // Only admin can create sections
+    if (req.user.role !== "admin") {
+      return res.status(403).json({
+        message: "Only admins can create sections",
+      });
+    }
+
+    if (!name || !name.trim()) {
+      return res.status(400).json({
+        message: "Section name is required",
+      });
+    }
+
+    const [result] = await pool.query(
+      `
+      INSERT INTO sections (name,created_by)
+      VALUES (?,?)
+      `,
+      [name.trim(),id]
+    );
+
+    const [sections] = await pool.query(
+      `
+      SELECT *
+      FROM sections
+      WHERE id = ?
+      `,
+      [result.insertId]
+    );
+
+    return res.status(201).json({
+      message: "Section created successfully",
+      section: sections[0],
+    });
+
+  } catch (error) {
+    console.error(
+      "Error creating section:",
+      error.message
+    );
+
+    return res.status(500).json({
+      message: "Failed to create section",
+    });
+  }
+};
+
+
+
+
+
+
+
+
+export const deleteSection = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    // Only admin can delete a section
+    if (req.user.role !== "admin") {
+      return res.status(403).json({
+        message: "Only admins can delete sections",
+      });
+    }
+
+    // Check whether section exists
+    const [section] = await pool.query(
+      "SELECT id FROM sections WHERE id = ?",
+      [id]
+    );
+
+    if (section.length === 0) {
+      return res.status(404).json({
+        message: "Section not found",
+      });
+    }
+
+    /*
+      Delete related members first.
+
+      Whether you also need to explicitly delete messages
+      depends on whether your database foreign keys use
+      ON DELETE CASCADE.
+    */
+
+    await pool.query(
+      "DELETE FROM section_members WHERE section_id = ?",
+      [id]
+    );
+
+    // Delete messages belonging to this section
+    await pool.query(
+      "DELETE FROM messages WHERE section_id = ?",
+      [id]
+    );
+
+    // Finally delete the section
+    await pool.query(
+      "DELETE FROM sections WHERE id = ?",
+      [id]
+    );
+
+    return res.status(200).json({
+      message: "Section deleted successfully",
+    });
+
+  } catch (error) {
+    console.error(
+      "Error deleting section:",
+      error.message
+    );
+
+    return res.status(500).json({
+      message: "Failed to delete section",
+    });
+  }
+};

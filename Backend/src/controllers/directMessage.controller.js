@@ -1,32 +1,59 @@
 import pool from "../lib/db.js";
 import { getIO } from "../lib/socket.js";
-export const sendDirectMessage = async (req, res) => {
+
+// ==========================================
+// SEND DIRECT MESSAGE
+// ==========================================
+
+export const sendDirectMessage = async (
+  req,
+  res
+) => {
   const { receiverId } = req.params;
+
   const { content } = req.body;
 
   const senderId = req.user.id;
   const senderRole = req.user.role;
 
   try {
-    // Validate message
+    // =========================
+    // VALIDATE MESSAGE
+    // =========================
+
     if (!content || !content.trim()) {
       return res.status(400).json({
         message: "Message content is required",
       });
     }
 
-    // Prevent sending message to yourself
-    if (Number(receiverId) === senderId) {
+    // =========================
+    // PREVENT SELF MESSAGE
+    // =========================
+
+    if (
+      Number(receiverId) ===
+      Number(senderId)
+    ) {
       return res.status(400).json({
-        message: "You cannot send a message to yourself",
+        message:
+          "You cannot send a message to yourself",
       });
     }
 
-    // Check whether receiver exists
+    // =========================
+    // CHECK RECEIVER
+    // =========================
+
     const [receiver] = await pool.query(
-      `SELECT id, full_name, role
-       FROM users
-       WHERE id = ?`,
+      `
+      SELECT
+        id,
+        full_name,
+        role
+      FROM users
+      WHERE id = ?
+      `,
       [receiverId]
     );
 
@@ -38,65 +65,105 @@ export const sendDirectMessage = async (req, res) => {
 
     const receiverRole = receiver[0].role;
 
-    // Student can only message admin
+    // =========================
+    // ACCESS RULES
+    // =========================
+
+    // Student cannot message another student
     if (
       senderRole === "student" &&
-      receiverRole !== "admin"
+      receiverRole === "student"
     ) {
       return res.status(403).json({
         message:
-          "Students can only send direct messages to the admin",
+          "Students can only send direct messages to administrators",
       });
     }
 
-    // Admin can only message students
-    if (
-      senderRole === "admin" &&
-      receiverRole !== "student"
-    ) {
-      return res.status(403).json({
-        message:
-          "Admin can only send direct messages to students",
-      });
-    }
+    // Admin can message:
+    // - Students
+    // - Other admins
+    // So no restriction needed for admin
 
-    // Save message
+    // =========================
+    // SAVE MESSAGE
+    // =========================
+
     const [result] = await pool.query(
-      `INSERT INTO direct_messages
-       (sender_id, receiver_id, content)
-       VALUES (?, ?, ?)`,
-      [senderId, receiverId, content.trim()]
+      `
+      INSERT INTO direct_messages
+      (
+        sender_id,
+        receiver_id,
+        content
+      )
+      VALUES (?, ?, ?)
+      `,
+      [
+        senderId,
+        receiverId,
+        content.trim(),
+      ]
     );
 
-    // Get newly created message with sender details
-    const [message] = await pool.query(
-  `SELECT
-    dm.id,
-    dm.sender_id,
-    dm.receiver_id,
-    dm.content,
-    dm.created_at,
-    dm.updated_at,
-    u.full_name,
-    u.profile_pic,
-    u.role
-  FROM direct_messages dm
-  JOIN users u
-    ON dm.sender_id = u.id
-  WHERE dm.id = ?`,
-  [result.insertId]
-);
+    // =========================
+    // FETCH CREATED MESSAGE
+    // =========================
 
-const newMessage = message[0];
+    const [messageRows] = await pool.query(
+      `
+      SELECT
+        dm.id,
+        dm.sender_id,
+        dm.receiver_id,
+        dm.content,
+        dm.created_at,
+        dm.updated_at,
 
-const io = getIO();
+        u.full_name,
+        u.profile_pic,
+        u.role
 
-io.emit("new_direct_message", newMessage);
+      FROM direct_messages dm
 
-return res.status(201).json({
-  message: "Direct message sent successfully",
-  data: newMessage,
-});
+      JOIN users u
+        ON dm.sender_id = u.id
+
+      WHERE dm.id = ?
+      `,
+      [result.insertId]
+    );
+
+    const newMessage = messageRows[0];
+
+    // =========================
+    // REALTIME DELIVERY
+    // =========================
+
+    const io = getIO();
+
+    // Send to sender
+    io.to(`user_${senderId}`).emit(
+      "new_direct_message",
+      newMessage
+    );
+
+    // Send to receiver
+    io.to(`user_${receiverId}`).emit(
+      "new_direct_message",
+      newMessage
+    );
+
+    // =========================
+    // RESPONSE
+    // =========================
+
+    return res.status(201).json({
+      message:
+        "Direct message sent successfully",
+
+      data: newMessage,
+    });
 
   } catch (error) {
     console.error(
@@ -105,25 +172,42 @@ return res.status(201).json({
     );
 
     return res.status(500).json({
-      message: "Failed to send direct message",
+      message:
+        "Failed to send direct message",
     });
   }
 };
 
 
+// ==========================================
+// GET DIRECT MESSAGES
+// ==========================================
 
-
-export const getDirectMessages = async (req, res) => {
+export const getDirectMessages = async (
+  req,
+  res
+) => {
   const { userId } = req.params;
+
   const currentUserId = req.user.id;
   const currentUserRole = req.user.role;
 
   try {
-    // Check whether the other user exists
+    // =========================
+    // CHECK USER
+    // =========================
+
     const [users] = await pool.query(
-      `SELECT id, full_name, email, profile_pic, role
-       FROM users
-       WHERE id = ?`,
+      `
+      SELECT
+        id,
+        full_name,
+        email,
+        profile_pic,
+        role
+      FROM users
+      WHERE id = ?
+      `,
       [userId]
     );
 
@@ -135,30 +219,32 @@ export const getDirectMessages = async (req, res) => {
 
     const otherUser = users[0];
 
-    // Security rules
-    // Student can only access conversation with admin
+    // =========================
+    // SECURITY RULES
+    // =========================
+
+    // Students cannot access
+    // conversations with other students
     if (
       currentUserRole === "student" &&
-      otherUser.role !== "admin"
+      otherUser.role === "student"
     ) {
       return res.status(403).json({
-        message: "Students can only access direct messages with the admin",
+        message:
+          "Students can only access conversations with administrators",
       });
     }
 
-    // Admin can only access conversation with students
-    if (
-      currentUserRole === "admin" &&
-      otherUser.role !== "student"
-    ) {
-      return res.status(403).json({
-        message: "Admin can only access direct messages with students",
-      });
-    }
+    // Admin can access conversations
+    // with both students and admins
 
-    // Fetch conversation between these two users
+    // =========================
+    // FETCH CONVERSATION
+    // =========================
+
     const [messages] = await pool.query(
-      `SELECT
+      `
+      SELECT
         dm.id,
         dm.sender_id,
         dm.receiver_id,
@@ -176,11 +262,18 @@ export const getDirectMessages = async (req, res) => {
         ON dm.sender_id = u.id
 
       WHERE
-        (dm.sender_id = ? AND dm.receiver_id = ?)
+        (
+          dm.sender_id = ?
+          AND dm.receiver_id = ?
+        )
         OR
-        (dm.sender_id = ? AND dm.receiver_id = ?)
+        (
+          dm.sender_id = ?
+          AND dm.receiver_id = ?
+        )
 
-      ORDER BY dm.created_at ASC`,
+      ORDER BY dm.created_at ASC
+      `,
       [
         currentUserId,
         userId,
@@ -201,50 +294,210 @@ export const getDirectMessages = async (req, res) => {
     );
 
     return res.status(500).json({
-      message: "Failed to fetch direct messages",
+      message:
+        "Failed to fetch direct messages",
     });
   }
 };
 
 
-export const getDirectConversations = async (req, res) => {
+// ==========================================
+// GET DIRECT CONVERSATIONS
+// ==========================================
+
+// export const getDirectConversations = async (
+//   req,
+//   res
+// ) => {
+//   const currentUserId = req.user.id;
+//   const currentUserRole = req.user.role;
+
+//   try {
+//     let conversations = [];
+
+//     // ======================================
+//     // STUDENT
+//     // Show ALL ADMINS
+//     // Even if conversation hasn't started
+//     // ======================================
+
+//     if (
+//       currentUserRole === "student"
+//     ) {
+//       const [rows] = await pool.query(
+//         `
+//         SELECT
+//           u.id,
+//           u.full_name,
+//           u.email,
+//           u.profile_pic,
+//           u.role,
+
+//           (
+//             SELECT MAX(dm.created_at)
+//             FROM direct_messages dm
+//             WHERE
+//               (
+//                 dm.sender_id = ?
+//                 AND dm.receiver_id = u.id
+//               )
+//               OR
+//               (
+//                 dm.sender_id = u.id
+//                 AND dm.receiver_id = ?
+//               )
+//           ) AS last_message_at
+
+//         FROM users u
+
+//         WHERE
+//           u.role = "admin"
+
+//           AND u.id != ?
+
+//         ORDER BY
+//           last_message_at DESC,
+//           u.full_name ASC
+//         `,
+//         [
+//           currentUserId,
+//           currentUserId,
+//           currentUserId,
+//         ]
+//       );
+
+//       conversations = rows;
+//     }
+
+
+//     // ======================================
+//     // ADMIN
+//     // Show everyone except themselves
+//     // Students + Other Admins
+//     // Only if conversation exists
+//     // ======================================
+
+//     else if (
+//       currentUserRole === "admin"
+//     ) {
+//       const [rows] = await pool.query(
+//         `
+//         SELECT
+//           u.id,
+//           u.full_name,
+//           u.email,
+//           u.profile_pic,
+//           u.role,
+
+//           MAX(dm.created_at)
+//             AS last_message_at
+
+//         FROM direct_messages dm
+
+//         JOIN users u
+//           ON u.id = CASE
+//             WHEN dm.sender_id = ?
+//             THEN dm.receiver_id
+//             ELSE dm.sender_id
+//           END
+
+//         WHERE
+//           dm.sender_id = ?
+//           OR dm.receiver_id = ?
+
+//         GROUP BY
+//           u.id,
+//           u.full_name,
+//           u.email,
+//           u.profile_pic,
+//           u.role
+
+//         ORDER BY
+//           last_message_at DESC
+//         `,
+//         [
+//           currentUserId,
+//           currentUserId,
+//           currentUserId,
+//         ]
+//       );
+
+//       conversations = rows;
+//     }
+
+//     return res
+//       .status(200)
+//       .json(conversations);
+
+//   } catch (error) {
+//     console.error(
+//       "Error fetching direct conversations:",
+//       error.message
+//     );
+
+//     return res.status(500).json({
+//       message:
+//         "Failed to fetch direct conversations",
+//     });
+//   }
+// };
+
+
+
+// ==========================================
+// GET DIRECT CONVERSATIONS
+// ==========================================
+
+export const getDirectConversations = async (
+  req,
+  res
+) => {
   const currentUserId = req.user.id;
   const currentUserRole = req.user.role;
 
   try {
     let conversations = [];
 
-    // ADMIN → Get students who have exchanged messages with admin
-    if (currentUserRole === "admin") {
+    // ======================================
+    // STUDENT
+    // Show ALL ADMINS
+    // ======================================
+
+    if (currentUserRole === "student") {
       const [rows] = await pool.query(
         `
-        SELECT 
+        SELECT
           u.id,
           u.full_name,
           u.email,
           u.profile_pic,
           u.role,
-          MAX(dm.created_at) AS last_message_at
-          
-        FROM direct_messages dm
-        
-        JOIN users u 
-          ON u.id = CASE
-            WHEN dm.sender_id = ? THEN dm.receiver_id
-            ELSE dm.sender_id
-          END
-          
-        WHERE dm.sender_id = ?
-           OR dm.receiver_id = ?
-           
-        GROUP BY 
-          u.id,
-          u.full_name,
-          u.email,
-          u.profile_pic,
-          u.role
-          
-        ORDER BY last_message_at DESC
+
+          (
+            SELECT MAX(dm.created_at)
+            FROM direct_messages dm
+            WHERE
+              (
+                dm.sender_id = ?
+                AND dm.receiver_id = u.id
+              )
+              OR
+              (
+                dm.sender_id = u.id
+                AND dm.receiver_id = ?
+              )
+          ) AS last_message_at
+
+        FROM users u
+
+        WHERE
+          u.role = "admin"
+          AND u.id != ?
+
+        ORDER BY
+          last_message_at IS NULL,
+          last_message_at DESC,
+          u.full_name ASC
         `,
         [
           currentUserId,
@@ -256,38 +509,46 @@ export const getDirectConversations = async (req, res) => {
       conversations = rows;
     }
 
-    // STUDENT → Show admin only if a conversation exists
-    else if (currentUserRole === "student") {
+    // ======================================
+    // ADMIN
+    // Show ALL USERS
+    // Students + Other Admins
+    // ======================================
+
+    else if (currentUserRole === "admin") {
       const [rows] = await pool.query(
         `
-        SELECT 
+        SELECT
           u.id,
           u.full_name,
           u.email,
           u.profile_pic,
           u.role,
-          MAX(dm.created_at) AS last_message_at
-          
-        FROM direct_messages dm
-        
-        JOIN users u
-          ON u.id = CASE
-            WHEN dm.sender_id = ? THEN dm.receiver_id
-            ELSE dm.sender_id
-          END
-          
-        WHERE 
-          (dm.sender_id = ? OR dm.receiver_id = ?)
-          AND u.role = "admin"
-          
-        GROUP BY 
-          u.id,
-          u.full_name,
-          u.email,
-          u.profile_pic,
-          u.role
-          
-        ORDER BY last_message_at DESC
+
+          (
+            SELECT MAX(dm.created_at)
+            FROM direct_messages dm
+            WHERE
+              (
+                dm.sender_id = ?
+                AND dm.receiver_id = u.id
+              )
+              OR
+              (
+                dm.sender_id = u.id
+                AND dm.receiver_id = ?
+              )
+          ) AS last_message_at
+
+        FROM users u
+
+        WHERE
+          u.id != ?
+
+        ORDER BY
+          last_message_at IS NULL,
+          last_message_at DESC,
+          u.full_name ASC
         `,
         [
           currentUserId,
@@ -299,7 +560,9 @@ export const getDirectConversations = async (req, res) => {
       conversations = rows;
     }
 
-    return res.status(200).json(conversations);
+    return res.status(200).json(
+      conversations
+    );
 
   } catch (error) {
     console.error(
@@ -308,7 +571,8 @@ export const getDirectConversations = async (req, res) => {
     );
 
     return res.status(500).json({
-      message: "Failed to fetch direct conversations",
+      message:
+        "Failed to fetch direct conversations",
     });
   }
 };

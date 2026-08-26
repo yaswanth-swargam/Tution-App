@@ -1,5 +1,7 @@
 import pool from "../lib/db.js";
 import {getIO} from '../lib/socket.js'
+
+
 export const sendMessage = async (req, res) => {
   const { sectionId } = req.params;
   const { content } = req.body;
@@ -8,16 +10,16 @@ export const sendMessage = async (req, res) => {
   const role = req.user.role;
 
   try {
-    // Check message content
+    // Validate message content
     if (!content || !content.trim()) {
       return res.status(400).json({
         message: "Message content is required",
       });
     }
 
-    // Check if section exists
+    // Check whether section exists
     const [section] = await pool.query(
-      "SELECT * FROM sections WHERE id = ?",
+      "SELECT id FROM sections WHERE id = ?",
       [sectionId]
     );
 
@@ -27,10 +29,11 @@ export const sendMessage = async (req, res) => {
       });
     }
 
-    // Student can send messages only in sections they belong to
+    // Student can only send messages to sections they belong to
     if (role === "student") {
       const [membership] = await pool.query(
-        `SELECT * FROM section_members
+        `SELECT section_id
+         FROM section_members
          WHERE section_id = ? AND user_id = ?`,
         [sectionId, userId]
       );
@@ -42,15 +45,15 @@ export const sendMessage = async (req, res) => {
       }
     }
 
-    // Insert message
+    // Save message
     const [result] = await pool.query(
       `INSERT INTO messages (section_id, sender_id, content)
        VALUES (?, ?, ?)`,
       [sectionId, userId, content.trim()]
     );
 
-    // Get the newly created message with sender details
-    const [message] = await pool.query(
+    // Get the complete newly created message
+    const [messages] = await pool.query(
       `SELECT
         m.id,
         m.section_id,
@@ -61,30 +64,48 @@ export const sendMessage = async (req, res) => {
         u.full_name,
         u.profile_pic
       FROM messages m
-      JOIN users u ON m.sender_id = u.id
+      JOIN users u
+        ON m.sender_id = u.id
       WHERE m.id = ?`,
       [result.insertId]
     );
 
-    const newMessage = message[0];
+    const newMessage = messages[0];
 
+    // Get Socket.IO instance
     const io = getIO();
 
-      io.to(`section:${sectionId}`).emit(
+    // IMPORTANT:
+    // Must match the room name used in server.js
+    const roomName = `section_${sectionId}`;
+
+    console.log(
+      `🔥 Emitting new_message to ${roomName}:`,
+      newMessage
+    );
+
+    // Send real-time message to everyone in this section
+    io.to(roomName).emit(
       "new_message",
       newMessage
     );
 
-return res.status(201).json(newMessage);
+    // Send API response
+    return res.status(201).json(newMessage);
 
   } catch (error) {
-    console.error("Error sending message:", error.message);
+    console.error(
+      "Error sending message:",
+      error.message
+    );
 
     return res.status(500).json({
       message: "Failed to send message",
     });
   }
 };
+
+
 
 export const sectionMessages = async (req, res) => {
   const { sectionId } = req.params;
