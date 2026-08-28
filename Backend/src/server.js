@@ -1,10 +1,11 @@
+import "dotenv/config";
+
 import http from "http";
 import app from "./app.js";
 import pool from "./lib/db.js";
 import { initializeSocket } from "./lib/socket.js";
 
 const PORT = process.env.PORT || 3000;
-
 const httpServer = http.createServer(app);
 
 const io = initializeSocket(httpServer);

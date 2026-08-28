@@ -1,14 +1,19 @@
 import dotenv from "dotenv";
+
 dotenv.config();
 
 import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
-import authRoutes from './routes/authRoutes.js'
-const app = express();
-import sectionRoutes from './routes/sectionRoutes.js'
-import messageRoutes from './routes/messageRoutes.js'
+
+import authRoutes from "./routes/authRoutes.js";
+import sectionRoutes from "./routes/sectionRoutes.js";
+import messageRoutes from "./routes/messageRoutes.js";
 import directMessageRoutes from "./routes/directMessageRoutes.js";
+import uploadRoutes from "./routes/uploadRoutes.js";
+
+const app = express();
+
 app.use(
   cors({
     origin: process.env.CLIENT_URL,
@@ -27,21 +32,16 @@ app.use(
 
 app.use(cookieParser());
 
-// app.get("/", (req, res) => {
-//   res.json({
-//     success: true,
-//     message: "Server is running 🚀",
-//   });
-// });
-
-app.use('/api/auth',authRoutes)
-app.use('/api/sections',sectionRoutes)
-app.use('/api/messages',messageRoutes)
+app.use("/api/auth", authRoutes);
+app.use("/api/sections", sectionRoutes);
+app.use("/api/messages", messageRoutes);
 app.use("/api/direct-messages", directMessageRoutes);
-app.get('/',(req,res)=>{
-    res.json({
-        message: "Backend connected"
-    })
-})
-export default app;
+app.use("/api/uploads", uploadRoutes);
 
+app.get("/", (req, res) => {
+  res.json({
+    message: "Backend connected",
+  });
+});
+
+export default app;

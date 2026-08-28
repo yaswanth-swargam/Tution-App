@@ -7,7 +7,6 @@ import {
 import {
   MessageCircle,
   ArrowLeft,
-  Users,
 } from "lucide-react";
 
 import { socket } from "../lib/socket.js";
@@ -54,6 +53,7 @@ import SectionsView from "./community/SectionsView.jsx";
 import SectionChat from "./community/SectionsChat.jsx";
 import DirectChat from "./community/DirectChat.jsx";
 import GroupInfoDrawer from "./community/GroupInfoDrawer.jsx";
+import DirectConversationsPanel from "./community/DirectConversationsPanel.jsx";
 
 const CommunityPage = () => {
   const dispatch = useDispatch();
@@ -458,51 +458,57 @@ const CommunityPage = () => {
   // SEND SECTION MESSAGE
   // =========================
 
-  const handleSendMessage =
-    (e) => {
-      e.preventDefault();
+  const handleSendMessage = async (messageData) => {
+  if (!selectedSection) {
+    return;
+  }
 
-      if (
-        !content.trim() ||
-        !selectedSection
-      ) {
-        return;
-      }
-
-      const messageContent =
-        content.trim();
-
-      setContent("");
-
-      dispatch(
-        sendMessage(
-          selectedSection.id,
-          messageContent
-        )
-      );
-    };
-
-  // =========================
+  try {
+    await dispatch(
+      sendMessage(
+        selectedSection.id,
+        messageData
+      )
+    );
+  } catch (error) {
+    console.error(
+      "Failed to send section message:",
+      error
+    );
+  }
+};  // =========================
   // SEND DIRECT MESSAGE
   // =========================
 
-  const handleSendDirectMessage =
-    (messageContent) => {
-      if (
-        !selectedDirectUser ||
-        !messageContent.trim()
-      ) {
-        return;
-      }
+  const handleSendDirectMessage = async (
+  messageData
+) => {
+  if (!selectedDirectUser) {
+    return;
+  }
 
-      dispatch(
-        sendDirectMessage(
-          selectedDirectUser.id,
-          messageContent.trim()
-        )
-      );
-    };
+  if (
+    !messageData.content?.trim() &&
+    !messageData.file_url
+  ) {
+    return;
+  }
 
+  try {
+    await dispatch(
+      sendDirectMessage(
+        selectedDirectUser.id,
+        messageData
+      )
+    );
+
+  } catch (error) {
+    console.error(
+      "Failed to send direct message:",
+      error
+    );
+  }
+};
   // =========================
   // CREATE SECTION
   // =========================
@@ -529,38 +535,26 @@ const CommunityPage = () => {
   // RENAME SECTION
   // =========================
 
-  const handleRenameSection =
-    async (name) => {
-      if (
-        !selectedSection ||
-        !name?.trim()
-      ) {
-        return;
-      }
+  const handleRenameSection = async (name) => {
+  if (!name || typeof name !== "string" || !name.trim()) {
+    return;
+  }
 
-      try {
-        const updatedSection =
-          await dispatch(
-            renameSection(
-              selectedSection.id,
-              name.trim()
-            )
-          );
+  try {
+    await dispatch(
+      renameSection(
+        selectedSection.id,
+        name.trim()
+      )
+    ).unwrap?.();
 
-        dispatch(
-          setSelectedSection(
-            updatedSection
-          )
-        );
-      } catch (error) {
-        console.error(
-          "Failed to rename section:",
-          error
-        );
-
-        throw error;
-      }
-    };
+  } catch (error) {
+    console.error(
+      "Failed to rename section:",
+      error
+    );
+  }
+};
 
   // =========================
   // DELETE SECTION
@@ -650,7 +644,7 @@ const CommunityPage = () => {
   // =========================
 
   return (
-    <div className="h-full">
+    <div className="h-full min-h-0 overflow-hidden">
 
       {/* =========================
           COMMUNITY HOME
@@ -669,6 +663,7 @@ const CommunityPage = () => {
   conversations={conversations}
   isLoadingConversations={isLoadingConversations}
   onSelectDirectUser={handleSelectDirectUser}
+  onlineUsers={onlineUsers}
 />
         )}
 
@@ -681,11 +676,11 @@ const CommunityPage = () => {
         !selectedDirectUser &&
         communityView === "messages" && (
 
-          <div className="flex-1 flex flex-col h-full">
+          <div className="flex h-full min-h-0 flex-col">
 
             {/* HEADER */}
 
-            <div className="border-b border-base-300 px-6 py-6 md:px-8">
+            <div className="shrink-0 border-b border-base-300 px-6 py-5 md:px-8">
 
               <div className="flex items-center gap-4">
 
@@ -728,145 +723,14 @@ const CommunityPage = () => {
 
             {/* CONVERSATION LIST */}
 
-            <div className="flex-1 overflow-y-auto px-6 py-6 md:px-8">
-
-              {isLoadingConversations ? (
-
-                <div className="flex justify-center py-12">
-
-                  <span className="loading loading-spinner loading-lg text-primary" />
-
-                </div>
-
-              ) : conversations.length === 0 ? (
-
-                <div className="flex flex-col items-center justify-center py-16 text-center">
-
-                  <MessageCircle className="w-16 h-16 text-base-content/20 mb-4" />
-
-                  <h3 className="text-lg font-semibold text-base-content">
-
-                    No conversations yet
-
-                  </h3>
-
-                  <p className="text-sm text-base-content/50 mt-2 max-w-sm">
-
-                    Your direct conversations will appear here once you send or receive a message.
-
-                  </p>
-
-                </div>
-
-              ) : (
-
-                <div className="max-w-3xl space-y-2">
-
-                  {conversations.map(
-                    (user) => {
-
-                      const isOnline =
-                        onlineUsers.includes(
-                          Number(user.id)
-                        );
-
-                      return (
-
-                        <button
-                          key={user.id}
-
-                          onClick={() =>
-                            handleSelectDirectUser(
-                              user
-                            )
-                          }
-
-                          className="w-full flex items-center gap-4 p-4 rounded-xl border border-base-300 bg-base-100 hover:bg-base-200 transition text-left"
-                        >
-
-                          {/* PROFILE */}
-
-                          <div className="relative">
-
-                            {user.profile_pic ? (
-
-                              <img
-                                src={
-                                  user.profile_pic
-                                }
-                                alt={
-                                  user.full_name
-                                }
-                                className="w-12 h-12 rounded-full object-cover"
-                              />
-
-                            ) : (
-
-                              <div className="w-12 h-12 rounded-full bg-primary/10 text-primary flex items-center justify-center font-semibold text-lg">
-
-                                {user.full_name
-                                  ?.charAt(0)
-                                  ?.toUpperCase()}
-
-                              </div>
-
-                            )}
-
-                            {/* ONLINE INDICATOR */}
-
-                            {isOnline && (
-
-                              <span className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-success rounded-full border-2 border-base-100" />
-
-                            )}
-
-                          </div>
-
-
-                          {/* USER INFO */}
-
-                          <div className="flex-1 min-w-0">
-
-                            <div className="flex items-center gap-2">
-
-                              <h3 className="font-semibold truncate">
-
-                                {user.full_name}
-
-                              </h3>
-
-                              {isOnline && (
-
-                                <span className="text-xs text-success">
-
-                                  Online
-
-                                </span>
-
-                              )}
-
-                            </div>
-
-                            <p className="text-sm text-base-content/50 truncate">
-
-                              {user.email}
-
-                            </p>
-
-                          </div>
-
-                          <MessageCircle className="w-5 h-5 text-base-content/40" />
-
-                        </button>
-
-                      );
-                    }
-                  )}
-
-                </div>
-
-              )}
-
+            <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6 md:px-8">
+              <DirectConversationsPanel
+                conversations={conversations}
+                isLoading={isLoadingConversations}
+                onSelectUser={handleSelectDirectUser}
+                authUser={authUser}
+                onlineUsers={onlineUsers}
+              />
             </div>
 
           </div>
@@ -879,32 +743,20 @@ const CommunityPage = () => {
       ========================= */}
 
       {selectedSection && (
-
-        <SectionChat
-          section={selectedSection}
-          messages={messages}
-          content={content}
-          onContentChange={
-            setContent
-          }
-          onSendMessage={
-            handleSendMessage
-          }
-          isLoadingMessages={
-            isLoadingMessages
-          }
-          isSendingMessage={
-            isSendingMessage
-          }
-          authUser={authUser}
-          onBack={
-            handleBackToCommunity
-          }
-          onShowGroupInfo={() =>
-            setShowGroupInfo(true)
-          }
-        />
-
+        <div className="h-full min-h-0">
+          <SectionChat
+            section={selectedSection}
+            messages={messages}
+            content={content}
+            onContentChange={setContent}
+            onSendMessage={handleSendMessage}
+            isLoadingMessages={isLoadingMessages}
+            isSendingMessage={isSendingMessage}
+            authUser={authUser}
+            onBack={handleBackToCommunity}
+            onShowGroupInfo={() => setShowGroupInfo(true)}
+          />
+        </div>
       )}
 
 
@@ -913,35 +765,17 @@ const CommunityPage = () => {
       ========================= */}
 
       {selectedDirectUser && (
-
-        <DirectChat
-          selectedUser={
-            selectedDirectUser
-          }
-          messages={
-            directMessages
-          }
-          authUser={
-            authUser
-          }
-
-          onBack={
-            handleBackToMessages
-          }
-
-          onSendMessage={
-            handleSendDirectMessage
-          }
-
-          isLoading={
-            isLoadingDirectMessages
-          }
-
-          isSending={
-            isSendingDirectMessage
-          }
-        />
-
+        <div className="h-full min-h-0">
+          <DirectChat
+            selectedUser={selectedDirectUser}
+            messages={directMessages}
+            authUser={authUser}
+            onBack={handleBackToMessages}
+            onSendMessage={handleSendDirectMessage}
+            isLoading={isLoadingDirectMessages}
+            isSending={isSendingDirectMessage}
+          />
+        </div>
       )}
 
 

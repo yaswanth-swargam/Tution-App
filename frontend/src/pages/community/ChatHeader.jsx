@@ -15,7 +15,7 @@ const ChatHeader = ({
   onToggleSearch,
 }) => {
   return (
-    <div className="border-b border-base-300 px-4 py-4 md:px-6 bg-base-100">
+    <div className="shrink-0 border-b border-base-300 bg-base-100 px-4 py-3 md:px-6">
 
       {isSearching ? (
 

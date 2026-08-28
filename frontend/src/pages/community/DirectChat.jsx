@@ -6,7 +6,14 @@ import {
   MessageCircle,
   Search,
   X,
+  Paperclip,
+  File,
+  Image,
+  ExternalLink,
 } from "lucide-react";
+
+import ChatLayout from "./ChatLayout";
+import { uploadFile } from "../../lib/upload.js";
 
 const DirectChat = ({
   selectedUser,
@@ -18,44 +25,35 @@ const DirectChat = ({
   isSending,
 }) => {
   const [content, setContent] = useState("");
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [isUploading, setIsUploading] = useState(false);
 
-  // =========================
-  // MESSAGE SEARCH
-  // =========================
-
-  const [isSearching, setIsSearching] =
-    useState(false);
-
-  const [searchQuery, setSearchQuery] =
-    useState("");
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const messagesEndRef = useRef(null);
+  const fileInputRef = useRef(null);
+
+  // =========================
+  // SEARCH
+  // =========================
 
   const normalizedQuery =
     searchQuery.trim().toLowerCase();
 
-  const filteredMessages =
-    normalizedQuery
-      ? messages.filter((message) =>
-          message.content
-            ?.toLowerCase()
-            .includes(normalizedQuery)
-        )
-      : messages;
-
-  // =========================
-  // AUTO SCROLL
-  // =========================
+  const filteredMessages = normalizedQuery
+    ? messages.filter((message) =>
+        message.content
+          ?.toLowerCase()
+          .includes(normalizedQuery)
+      )
+    : messages;
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({
       behavior: "smooth",
     });
   }, [filteredMessages]);
-
-  // =========================
-  // TOGGLE SEARCH
-  // =========================
 
   const handleToggleSearch = () => {
     setIsSearching((prev) => !prev);
@@ -66,35 +64,104 @@ const DirectChat = ({
   };
 
   // =========================
-  // SEND MESSAGE
+  // FILE HANDLING
   // =========================
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
+  const handleFileChange = (e) => {
+    const file = e.target.files?.[0];
 
-    const trimmedContent = content.trim();
+    if (!file) return;
 
-    if (!trimmedContent || isSending) {
-      return;
+    setSelectedFile(file);
+  };
+
+  const removeFile = () => {
+    setSelectedFile(null);
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
     }
-
-    onSendMessage(trimmedContent);
-
-    setContent("");
   };
 
   // =========================
-  // FORMAT DATE
+  // SEND MESSAGE
+  // =========================
+
+  const handleSubmit = async (e) => {
+  e.preventDefault();
+
+  if (
+    (!content.trim() && !selectedFile) ||
+    isSending ||
+    isUploading
+  ) {
+    return;
+  }
+
+  try {
+    let uploadedFileData = null;
+
+    if (selectedFile) {
+      console.log("📤 Starting file upload");
+
+      setIsUploading(true);
+
+      uploadedFileData =
+        await uploadFile(selectedFile);
+
+      console.log(
+        "✅ File upload finished:",
+        uploadedFileData
+      );
+    }
+
+    const messageData = {
+      content: content.trim(),
+
+      ...(uploadedFileData && {
+        file_url: uploadedFileData.url,
+        file_public_id: uploadedFileData.public_id,
+        file_name: uploadedFileData.file_name,
+        file_type: uploadedFileData.file_type,
+        file_size: uploadedFileData.file_size,
+      }),
+    };
+
+    console.log(
+      "📨 Sending direct message:",
+      messageData
+    );
+
+    await onSendMessage(messageData);
+
+    console.log(
+      "✅ Direct message successfully sent"
+    );
+
+    setContent("");
+    removeFile();
+
+  } catch (error) {
+    console.error(
+      "❌ Failed to send direct message:",
+      error
+    );
+  } finally {
+    console.log("🔄 Resetting upload state");
+
+    setIsUploading(false);
+  }
+};
+  // =========================
+  // DATE FORMAT
   // =========================
 
   const formatDateTime = (dateString) => {
-    if (!dateString) {
-      return "";
-    }
+    if (!dateString) return "";
 
-    const date = new Date(dateString);
-
-    return date.toLocaleString([], {
+    return new Date(
+      dateString
+    ).toLocaleString([], {
       day: "2-digit",
       month: "short",
       year: "numeric",
@@ -103,189 +170,376 @@ const DirectChat = ({
     });
   };
 
+  // =========================
+  // HELPERS
+  // =========================
+
+  const isImageFile = (fileType) => {
+    return fileType?.startsWith("image/");
+  };
+
+  const isDisabled =
+    isSending || isUploading;
+
+  const isEmpty =
+    filteredMessages.length === 0;
+
   return (
-    <div className="flex-1 flex flex-col min-h-0">
+    <ChatLayout
+      isLoading={isLoading}
+      loadingText="Loading messages..."
 
-      {/* ================= HEADER ================= */}
+      // =========================
+      // HEADER
+      // =========================
 
-      <div className="border-b border-base-300 shrink-0">
+      header={
+        <div className="border-b border-base-300 bg-base-100">
 
-        {isSearching ? (
+          {isSearching ? (
 
-          /* SEARCH MODE */
+            <div className="flex items-center gap-3 px-4 py-3 md:px-6">
 
-          <div className="flex items-center gap-3 px-4 py-4">
+              <div className="relative flex-1">
 
-            <div className="relative flex-1">
+                <Search
+                  className="
+                    pointer-events-none
+                    absolute
+                    left-3
+                    top-1/2
+                    h-4
+                    w-4
+                    -translate-y-1/2
+                    text-base-content/40
+                  "
+                />
 
-              <Search
-                className="
-                  absolute
-                  left-3
-                  top-1/2
-                  -translate-y-1/2
-                  w-5
-                  h-5
-                  text-base-content/40
-                "
-              />
-
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) =>
-                  setSearchQuery(e.target.value)
-                }
-                placeholder="Search messages..."
-                className="
-                  input
-                  input-bordered
-                  w-full
-                  pl-10
-                "
-                autoFocus
-              />
-
-            </div>
-
-            <button
-              onClick={handleToggleSearch}
-              className="btn btn-ghost btn-circle btn-sm"
-              title="Close search"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-          </div>
-
-        ) : (
-
-          /* NORMAL HEADER */
-
-          <div className="flex items-center gap-4 px-4 py-4">
-
-            <button
-              onClick={onBack}
-              className="btn btn-ghost btn-sm btn-circle"
-              title="Back"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </button>
-
-
-            {/* AVATAR */}
-
-            <div className="avatar placeholder">
-
-              <div className="
-                w-11
-                rounded-full
-                bg-primary
-                text-primary-content
-                overflow-hidden
-              ">
-
-                {selectedUser?.profile_pic ? (
-
-                  <img
-                    src={selectedUser.profile_pic}
-                    alt={selectedUser.full_name}
-                    className="w-full h-full object-cover"
-                  />
-
-                ) : (
-
-                  <span className="text-lg">
-
-                    {selectedUser?.full_name
-                      ?.charAt(0)
-                      ?.toUpperCase()}
-
-                  </span>
-
-                )}
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) =>
+                    setSearchQuery(e.target.value)
+                  }
+                  placeholder="Search messages..."
+                  className="
+                    input
+                    input-bordered
+                    w-full
+                    pl-10
+                  "
+                  autoFocus
+                />
 
               </div>
 
-            </div>
-
-
-            {/* USER INFO */}
-
-            <div className="flex-1 min-w-0">
-
-              <h2 className="
-                font-semibold
-                text-base-content
-                truncate
-              ">
-                {selectedUser?.full_name}
-              </h2>
-
-              <p className="
-                text-xs
-                text-base-content/50
-              ">
-                {selectedUser?.role === "admin"
-                  ? "Administrator"
-                  : selectedUser?.email}
-              </p>
+              <button
+                type="button"
+                onClick={handleToggleSearch}
+                className="
+                  btn
+                  btn-ghost
+                  btn-circle
+                  btn-sm
+                "
+                title="Close search"
+              >
+                <X className="h-5 w-5" />
+              </button>
 
             </div>
 
+          ) : (
 
-            {/* SEARCH BUTTON */}
+            <div className="flex items-center gap-3 px-4 py-3 md:px-6">
+
+              <button
+                type="button"
+                onClick={onBack}
+                className="
+                  btn
+                  btn-ghost
+                  btn-circle
+                  btn-sm
+                "
+                title="Back"
+              >
+                <ArrowLeft className="h-5 w-5" />
+              </button>
+
+              <div className="avatar placeholder">
+
+                <div className="
+                  w-10
+                  overflow-hidden
+                  rounded-full
+                  bg-primary
+                  text-primary-content
+                ">
+
+                  {selectedUser?.profile_pic ? (
+
+                    <img
+                      src={selectedUser.profile_pic}
+                      alt={selectedUser.full_name}
+                      className="
+                        h-full
+                        w-full
+                        object-cover
+                      "
+                    />
+
+                  ) : (
+
+                    <span>
+                      {selectedUser?.full_name
+                        ?.charAt(0)
+                        ?.toUpperCase()}
+                    </span>
+
+                  )}
+
+                </div>
+
+              </div>
+
+              <div className="min-w-0 flex-1">
+
+                <h2 className="
+                  truncate
+                  font-semibold
+                  text-base-content
+                ">
+                  {selectedUser?.full_name}
+                </h2>
+
+                <p className="
+                  truncate
+                  text-xs
+                  text-base-content/50
+                ">
+                  {selectedUser?.role === "admin"
+                    ? "Administrator"
+                    : selectedUser?.email}
+                </p>
+
+              </div>
+
+              <button
+                type="button"
+                onClick={handleToggleSearch}
+                className="
+                  btn
+                  btn-ghost
+                  btn-circle
+                  btn-sm
+                "
+                title="Search messages"
+                aria-label="Search messages"
+              >
+                <Search className="h-5 w-5" />
+              </button>
+
+            </div>
+
+          )}
+
+        </div>
+      }
+
+      // =========================
+      // FOOTER / MESSAGE INPUT
+      // =========================
+
+      footer={
+        <form
+          onSubmit={handleSubmit}
+          className="
+            border-t
+            border-base-300
+            bg-base-100
+            px-4
+            py-3
+            md:px-6
+          "
+        >
+
+          {/* FILE PREVIEW */}
+
+          {selectedFile && (
+
+            <div className="
+              mb-3
+              flex
+              items-center
+              justify-between
+              gap-3
+              rounded-lg
+              bg-base-200
+              px-3
+              py-2
+            ">
+
+              <div className="
+                flex
+                min-w-0
+                items-center
+                gap-2
+              ">
+
+                <File className="
+                  h-5
+                  w-5
+                  shrink-0
+                  text-primary
+                " />
+
+                <span className="
+                  truncate
+                  text-sm
+                ">
+                  {selectedFile.name}
+                </span>
+
+              </div>
+
+              <button
+                type="button"
+                onClick={removeFile}
+                disabled={isDisabled}
+                className="
+                  btn
+                  btn-ghost
+                  btn-xs
+                  btn-circle
+                  shrink-0
+                "
+              >
+                <X className="h-4 w-4" />
+              </button>
+
+            </div>
+
+          )}
+
+          <div className="
+            flex
+            items-center
+            gap-2
+          ">
+
+            {/* HIDDEN FILE INPUT */}
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              onChange={handleFileChange}
+              className="hidden"
+              disabled={isDisabled}
+            />
+
+            {/* ATTACH BUTTON */}
 
             <button
-              onClick={handleToggleSearch}
+              type="button"
+              onClick={() =>
+                fileInputRef.current?.click()
+              }
+              disabled={isDisabled}
               className="
                 btn
                 btn-ghost
-                btn-sm
-                btn-circle
+                btn-square
+                shrink-0
               "
-              title="Search messages"
-              aria-label="Search messages"
+              title="Attach file"
             >
-              <Search className="w-5 h-5" />
+              <Paperclip className="h-5 w-5" />
+            </button>
+
+            {/* TEXT INPUT */}
+
+            <input
+              type="text"
+              value={content}
+              onChange={(e) =>
+                setContent(e.target.value)
+              }
+              placeholder={`Message ${
+                selectedUser?.full_name || ""
+              }`}
+              className="
+                input
+                input-bordered
+                min-w-0
+                flex-1
+              "
+              disabled={isDisabled}
+            />
+
+            {/* SEND BUTTON */}
+
+            <button
+              type="submit"
+              disabled={
+                isDisabled ||
+                (
+                  !content.trim() &&
+                  !selectedFile
+                )
+              }
+              className="
+                btn
+                btn-primary
+                btn-square
+                shrink-0
+              "
+            >
+
+              {isUploading || isSending ? (
+
+                <span className="
+                  loading
+                  loading-spinner
+                  loading-sm
+                " />
+
+              ) : (
+
+                <Send className="h-5 w-5" />
+
+              )}
+
             </button>
 
           </div>
 
-        )}
+        </form>
+      }
+    >
 
-      </div>
-
-
-      {/* ================= MESSAGES ================= */}
+      {/* =========================
+          MESSAGE LIST
+      ========================== */}
 
       <div className="
-        flex-1
+        flex
         min-h-0
+        flex-1
+        flex-col
         overflow-y-auto
+        overflow-x-hidden
         px-4
         py-5
-        space-y-4
+        md:px-6
       ">
 
-        {isLoading ? (
-
-          <div className="flex justify-center py-10">
-
-            <span className="
-              loading
-              loading-spinner
-              loading-lg
-              text-primary
-            " />
-
-          </div>
-
-        ) : filteredMessages.length === 0 ? (
+        {isEmpty ? (
 
           <div className="
-            h-full
             flex
+            min-h-full
+            flex-1
             flex-col
             items-center
             justify-center
@@ -294,171 +548,217 @@ const DirectChat = ({
 
             <MessageCircle
               className="
-                w-14
-                h-14
+                mb-3
+                h-12
+                w-12
                 text-base-content/20
-                mb-4
               "
             />
 
             <h3 className="
-              font-semibold
+              font-medium
               text-base-content/70
             ">
-
               {normalizedQuery
                 ? "No matching messages found"
                 : "No messages yet"}
-
             </h3>
 
             <p className="
-              text-sm
-              text-base-content/50
               mt-1
+              text-sm
+              text-base-content/45
             ">
-
               {normalizedQuery
                 ? "Try searching with different words"
-                : (
-                  <>
-                    Start the conversation with{" "}
-                    {selectedUser?.full_name}
-                  </>
-                )}
-
+                : `Start the conversation with ${selectedUser?.full_name}`}
             </p>
 
           </div>
 
         ) : (
 
-          filteredMessages.map((message) => {
+          <div className="
+            flex
+            flex-col
+            gap-4
+          ">
 
-            const isMine =
-              Number(message.sender_id) ===
-              Number(authUser?.id);
+            {filteredMessages.map((message) => {
 
-            return (
+              const isMine =
+                Number(message.sender_id) ===
+                Number(authUser?.id);
 
-              <div
-                key={message.id}
-                className={`flex ${
-                  isMine
-                    ? "justify-end"
-                    : "justify-start"
-                }`}
-              >
+              const isImage =
+                isImageFile(
+                  message.file_type
+                );
+
+              return (
 
                 <div
-                  className={`max-w-[75%] px-4 py-3 rounded-2xl ${
-                    isMine
-                      ? "bg-primary text-primary-content rounded-br-md"
-                      : "bg-base-200 text-base-content rounded-bl-md"
-                  }`}
+                  key={message.id}
+                  className={`
+                    flex
+                    ${
+                      isMine
+                        ? "justify-end"
+                        : "justify-start"
+                    }
+                  `}
                 >
 
-                  <p className="
-                    text-sm
-                    whitespace-pre-wrap
-                    break-words
-                  ">
-                    {message.content}
-                  </p>
-
-
-                  <p
-                    className={`text-[11px] mt-1 ${
-                      isMine
-                        ? "text-primary-content/70"
-                        : "text-base-content/40"
-                    }`}
+                  <div
+                    className={`
+                      max-w-[75%]
+                      rounded-2xl
+                      px-4
+                      py-3
+                      ${
+                        isMine
+                          ? "rounded-br-md bg-primary text-primary-content"
+                          : "rounded-bl-md bg-base-200 text-base-content"
+                      }
+                    `}
                   >
-                    {formatDateTime(
-                      message.created_at
+
+                    {/* TEXT */}
+
+                    {message.content && (
+
+                      <p className="
+                        whitespace-pre-wrap
+                        break-words
+                        text-sm
+                      ">
+                        {message.content}
+                      </p>
+
                     )}
-                  </p>
+
+                    {/* IMAGE FILE */}
+
+                    {message.file_url && isImage && (
+
+                      <a
+                        href={message.file_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block"
+                      >
+
+                        <img
+                          src={message.file_url}
+                          alt={
+                            message.file_name ||
+                            "Shared image"
+                          }
+                          className="
+                            mt-2
+                            max-h-72
+                            rounded-lg
+                            object-cover
+                          "
+                        />
+
+                      </a>
+
+                    )}
+
+                    {/* OTHER FILE */}
+
+                    {message.file_url && !isImage && (
+
+                      <a
+                        href={message.file_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="
+                          mt-2
+                          flex
+                          items-center
+                          gap-3
+                          rounded-lg
+                          bg-base-100/10
+                          p-3
+                          hover:bg-base-100/20
+                        "
+                      >
+
+                        <File className="
+                          h-6
+                          w-6
+                          shrink-0
+                        " />
+
+                        <div className="
+                          min-w-0
+                          flex-1
+                        ">
+
+                          <p className="
+                            truncate
+                            text-sm
+                            font-medium
+                          ">
+                            {message.file_name}
+                          </p>
+
+                          <p className="
+                            text-xs
+                            opacity-70
+                          ">
+                            {message.file_type}
+                          </p>
+
+                        </div>
+
+                        <ExternalLink className="
+                          h-4
+                          w-4
+                          shrink-0
+                        " />
+
+                      </a>
+
+                    )}
+
+                    {/* TIME */}
+
+                    <p
+                      className={`
+                        mt-2
+                        text-[11px]
+                        ${
+                          isMine
+                            ? "text-primary-content/70"
+                            : "text-base-content/40"
+                        }
+                      `}
+                    >
+                      {formatDateTime(
+                        message.created_at
+                      )}
+                    </p>
+
+                  </div>
 
                 </div>
 
-              </div>
+              );
 
-            );
-          })
+            })}
+
+            <div ref={messagesEndRef} />
+
+          </div>
 
         )}
 
-        <div ref={messagesEndRef} />
-
       </div>
 
-
-      {/* ================= INPUT ================= */}
-
-      <form
-        onSubmit={handleSubmit}
-        className="
-          border-t
-          border-base-300
-          p-4
-          shrink-0
-        "
-      >
-
-        <div className="flex items-center gap-3">
-
-          <input
-            type="text"
-            value={content}
-            onChange={(e) =>
-              setContent(e.target.value)
-            }
-            placeholder={`Message ${
-              selectedUser?.full_name || ""
-            }`}
-            className="
-              input
-              input-bordered
-              flex-1
-            "
-            disabled={isSending}
-          />
-
-          <button
-            type="submit"
-            disabled={
-              !content.trim() ||
-              isSending
-            }
-            className="
-              btn
-              btn-primary
-              btn-circle
-              shrink-0
-            "
-          >
-
-            {isSending ? (
-
-              <span className="
-                loading
-                loading-spinner
-                loading-sm
-              " />
-
-            ) : (
-
-              <Send className="w-5 h-5" />
-
-            )}
-
-          </button>
-
-        </div>
-
-      </form>
-
-    </div>
+    </ChatLayout>
   );
 };
 

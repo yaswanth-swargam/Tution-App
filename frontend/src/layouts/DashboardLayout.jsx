@@ -14,8 +14,8 @@ const DashboardLayout = () => {
       <div className="flex min-w-0 flex-1 flex-col">
         <Navbar />
 
-        <main className="flex-1 overflow-y-auto px-6 py-7 lg:px-8">
-          <div className="mx-auto max-w-6xl">
+        <main className="flex min-h-0 flex-1 flex-col overflow-hidden px-6 py-7 lg:px-8">
+          <div className="mx-auto h-full min-h-0 w-full max-w-6xl overflow-y-auto">
             <Outlet />
           </div>
         </main>

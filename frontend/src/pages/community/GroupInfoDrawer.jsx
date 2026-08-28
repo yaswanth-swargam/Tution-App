@@ -51,32 +51,29 @@ const GroupInfoDrawer = ({
   // =========================
 
   const handleRename = async () => {
-    const trimmedName = sectionName.trim();
+  const trimmedName = sectionName.trim();
 
-    if (!trimmedName) {
-      return;
-    }
+  if (!trimmedName) {
+    return;
+  }
 
-    if (trimmedName === section.name) {
-      setIsEditingName(false);
-      return;
-    }
+  if (trimmedName === section.name) {
+    setIsEditingName(false);
+    return;
+  }
 
-    try {
-      await onRenameSection(
-        section.id,
-        trimmedName
-      );
+  try {
+    await onRenameSection(trimmedName);
 
-      setIsEditingName(false);
+    setIsEditingName(false);
 
-    } catch (error) {
-      console.error(
-        "Failed to rename section:",
-        error
-      );
-    }
-  };
+  } catch (error) {
+    console.error(
+      "Failed to rename section:",
+      error
+    );
+  }
+};
 
   const handleCancelRename = () => {
     setSectionName(section.name);

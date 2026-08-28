@@ -4,11 +4,10 @@ import {
   Users,
   Plus,
   X,
-  MessageCircle,
-  Search,
 } from "lucide-react";
 
 import SectionCard from "./SectionCard";
+import DirectConversationsPanel from "./DirectConversationsPanel";
 
 const SectionsView = ({
   sections,
@@ -21,6 +20,7 @@ const SectionsView = ({
   conversations,
   isLoadingConversations,
   onSelectDirectUser,
+  onlineUsers = [],
 }) => {
   const [showCreateModal, setShowCreateModal] =
     useState(false);
@@ -30,35 +30,6 @@ const SectionsView = ({
 
   const [isCreating, setIsCreating] =
     useState(false);
-
-  // =========================
-  // DIRECT MESSAGE SEARCH
-  // =========================
-
-  const [searchQuery, setSearchQuery] =
-    useState("");
-
-  const filteredConversations =
-    conversations.filter((user) => {
-      const query =
-        searchQuery.toLowerCase().trim();
-
-      if (!query) return true;
-
-      return (
-        user.full_name
-          ?.toLowerCase()
-          .includes(query) ||
-
-        user.email
-          ?.toLowerCase()
-          .includes(query) ||
-
-        user.role
-          ?.toLowerCase()
-          .includes(query)
-      );
-    });
 
   // =========================
   // CREATE SECTION
@@ -92,11 +63,11 @@ const SectionsView = ({
   };
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden">
 
       {/* ================= HEADER ================= */}
 
-      <div className="border-b border-base-300 px-6 py-6 md:px-8 md:py-8">
+      <div className="shrink-0 border-b border-base-300 px-6 py-6 md:px-8 md:py-8">
 
         <div className="flex items-start justify-between gap-4">
 
@@ -139,7 +110,7 @@ const SectionsView = ({
 
       {/* ================= CONTENT ================= */}
 
-      <div className="flex-1 overflow-y-auto">
+      <div className="min-h-0 flex-1 overflow-y-auto">
 
         <div className="px-6 py-8 md:px-8 space-y-10">
 
@@ -149,263 +120,24 @@ const SectionsView = ({
           ========================================= */}
 
           <section>
-
-            <div className="flex items-center gap-3 mb-5">
-
-              <div className="p-2 rounded-lg bg-primary/10">
-                <MessageCircle className="w-6 h-6 text-primary" />
-              </div>
-
-              <div>
-                <h2 className="text-xl font-bold">
-                  Direct Messages
-                </h2>
-
-                <p className="text-sm text-base-content/60">
-                  {authUser?.role === "admin"
-                    ? "Search and message students or other administrators"
-                    : "Message your administrators directly"}
-                </p>
-              </div>
-
+            <div className="mb-5">
+              <h2 className="text-xl font-bold">
+                Direct Messages
+              </h2>
+              <p className="text-sm text-base-content/60">
+                {authUser?.role === "admin"
+                  ? "Recent chats, or search to message someone new"
+                  : "Your recent direct conversations"}
+              </p>
             </div>
 
-
-            {/* ================= SEARCH BAR ================= */}
-
-            {!isLoadingConversations && (
-              <div className="relative mb-5">
-
-                <Search
-                  className="
-                    absolute
-                    left-3
-                    top-1/2
-                    -translate-y-1/2
-                    w-5
-                    h-5
-                    text-base-content/40
-                  "
-                />
-
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) =>
-                    setSearchQuery(
-                      e.target.value
-                    )
-                  }
-                  placeholder={
-                    authUser?.role === "admin"
-                      ? "Search students or administrators..."
-                      : "Search administrators..."
-                  }
-                  className="
-                    input
-                    input-bordered
-                    w-full
-                    pl-11
-                  "
-                />
-
-              </div>
-            )}
-
-
-            {/* ================= LOADING ================= */}
-
-            {isLoadingConversations ? (
-
-              <div className="flex justify-center py-8">
-
-                <span className="
-                  loading
-                  loading-spinner
-                  loading-lg
-                  text-primary
-                " />
-
-              </div>
-
-            ) : filteredConversations.length === 0 ? (
-
-              <div className="border border-base-300 rounded-xl p-8 text-center">
-
-                <MessageCircle className="
-                  w-12
-                  h-12
-                  mx-auto
-                  mb-3
-                  text-base-content/30
-                " />
-
-                <h3 className="font-semibold">
-
-                  {searchQuery
-                    ? "No users found"
-                    : "No users available"}
-
-                </h3>
-
-                <p className="text-sm text-base-content/50 mt-1">
-
-                  {searchQuery
-                    ? "Try searching with a different name or email"
-                    : "Users available for direct messaging will appear here"}
-
-                </p>
-
-              </div>
-
-            ) : (
-
-              <>
-
-                {/* SEARCH RESULT COUNT */}
-
-                {searchQuery && (
-
-                  <p className="text-xs text-base-content/50 mb-3">
-
-                    {filteredConversations.length}{" "}
-
-                    {filteredConversations.length === 1
-                      ? "person found"
-                      : "people found"}
-
-                  </p>
-
-                )}
-
-
-                {/* ================= USER GRID ================= */}
-
-                <div className="
-                  grid
-                  grid-cols-1
-                  md:grid-cols-2
-                  lg:grid-cols-3
-                  gap-4
-                ">
-
-                  {filteredConversations.map(
-                    (user) => (
-
-                      <button
-                        key={user.id}
-                        onClick={() =>
-                          onSelectDirectUser(user)
-                        }
-                        className="
-                          w-full
-                          flex
-                          items-center
-                          gap-4
-                          p-4
-                          rounded-xl
-                          border
-                          border-base-300
-                          bg-base-100
-                          hover:bg-base-200
-                          hover:border-primary/40
-                          transition-all
-                          text-left
-                        "
-                      >
-
-                        {/* AVATAR */}
-
-                        <div className="avatar placeholder">
-
-                          <div className="
-                            w-12
-                            rounded-full
-                            bg-primary
-                            text-primary-content
-                          ">
-
-                            {user.profile_pic ? (
-
-                              <img
-                                src={user.profile_pic}
-                                alt={user.full_name}
-                              />
-
-                            ) : (
-
-                              <span className="text-lg">
-
-                                {user.full_name
-                                  ?.charAt(0)
-                                  ?.toUpperCase()}
-
-                              </span>
-
-                            )}
-
-                          </div>
-
-                        </div>
-
-
-                        {/* USER INFO */}
-
-                        <div className="
-                          flex-1
-                          min-w-0
-                        ">
-
-                          <h3 className="
-                            font-semibold
-                            truncate
-                          ">
-
-                            {user.full_name}
-
-                          </h3>
-
-
-                          <p className="
-                            text-sm
-                            text-base-content/60
-                            truncate
-                          ">
-
-                            {user.email}
-
-                          </p>
-
-
-                          <div className="mt-1">
-
-                            <span className="
-                              badge
-                              badge-sm
-                              badge-outline
-                            ">
-
-                              {user.role === "admin"
-                                ? "Administrator"
-                                : "Student"}
-
-                            </span>
-
-                          </div>
-
-                        </div>
-
-                      </button>
-
-                    )
-                  )}
-
-                </div>
-
-              </>
-
-            )}
-
+            <DirectConversationsPanel
+              conversations={conversations}
+              isLoading={isLoadingConversations}
+              onSelectUser={onSelectDirectUser}
+              authUser={authUser}
+              onlineUsers={onlineUsers}
+            />
           </section>
 
 
