@@ -21,6 +21,9 @@ const SectionsView = ({
   isLoadingConversations,
   onSelectDirectUser,
   onlineUsers = [],
+
+
+  unreadSectionCounts = {}
 }) => {
   const [showCreateModal, setShowCreateModal] =
     useState(false);
@@ -283,6 +286,9 @@ const SectionsView = ({
                       onClick={() =>
                         onSelectSection(section)
                       }
+                      unreadCount={
+        unreadSectionCounts[section.id] || 0
+      }
                     />
 
                   )

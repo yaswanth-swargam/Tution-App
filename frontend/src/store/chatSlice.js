@@ -6,6 +6,11 @@ const initialState = {
   messages: [],
   members:[],
 
+  unreadSectionCounts: {},
+  loadingUnreadSections: false,
+
+  unreadDirectMessageCounts: {},
+
   isLoadingSections: false,
   isLoadingMessages: false,
   isSendingMessage: false,
@@ -129,6 +134,64 @@ setRemovingStudent: (state, action) => {
   setOnlineUsers: (state, action) => {
   state.onlineUsers = action.payload;
 },
+
+
+setUnreadSectionCount: (state, action) => {
+  const { sectionId, count } = action.payload;
+
+  state.unreadSectionCounts[sectionId] = count;
+},
+
+setUnreadSectionCounts: (state, action) => {
+  state.unreadSectionCounts = action.payload;
+},
+
+clearUnreadSectionCount: (state, action) => {
+  const sectionId = action.payload;
+
+  state.unreadSectionCounts[sectionId] = 0;
+},
+
+setLoadingUnreadSections: (state, action) => {
+  state.loadingUnreadSections = action.payload;
+},
+incrementUnreadSectionCount: (
+  state,
+  action
+) => {
+  const sectionId = action.payload;
+
+  state.unreadSectionCounts[sectionId] =
+    (state.unreadSectionCounts[sectionId] || 0) + 1;
+},
+
+
+incrementUnreadDirectMessageCount: (
+  state,
+  action
+) => {
+  const userId = Number(action.payload);
+
+  state.unreadDirectMessageCounts[userId] =
+    (state.unreadDirectMessageCounts[userId] || 0) + 1;
+},
+
+clearUnreadDirectMessageCount: (
+  state,
+  action
+) => {
+  const userId = Number(action.payload);
+
+  state.unreadDirectMessageCounts[userId] = 0;
+},
+
+setUnreadDirectMessageCounts: (
+  state,
+  action
+) => {
+  state.unreadDirectMessageCounts =
+    action.payload;
+},
   },
 });
 
@@ -156,6 +219,18 @@ setLoadingAvailableStudents,
 setAddingStudent,
 setRemovingStudent,
     setOnlineUsers,
+
+
+    setUnreadSectionCount,
+  setUnreadSectionCounts,
+  clearUnreadSectionCount,
+  setLoadingUnreadSections,
+  incrementUnreadSectionCount,
+
+
+  incrementUnreadDirectMessageCount,
+clearUnreadDirectMessageCount,
+setUnreadDirectMessageCounts,
 } = chatSlice.actions;
 
 export default chatSlice.reducer;

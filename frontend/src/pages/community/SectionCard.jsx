@@ -1,6 +1,10 @@
 import { BookOpen, ChevronRight } from "lucide-react";
 
-const SectionCard = ({ section, onClick }) => {
+const SectionCard = ({
+  section,
+  onClick,
+  unreadCount = 0,
+}) => {
   return (
     <button
       onClick={onClick}
@@ -11,9 +15,37 @@ const SectionCard = ({ section, onClick }) => {
 
       {/* Content */}
       <div className="relative z-10">
-        {/* Icon */}
-        <div className="mb-4 inline-flex p-3 bg-primary/10 rounded-lg group-hover:bg-primary/20 transition-colors duration-200">
-          <BookOpen className="w-6 h-6 text-primary" />
+
+        {/* Icon + unread badge */}
+        <div className="flex items-start justify-between mb-4">
+
+          <div className="inline-flex p-3 bg-primary/10 rounded-lg group-hover:bg-primary/20 transition-colors duration-200">
+            <BookOpen className="w-6 h-6 text-primary" />
+          </div>
+
+          {/* Unread count */}
+          {unreadCount > 0 && (
+            <span
+              className="
+                flex
+                min-w-6
+                h-6
+                items-center
+                justify-center
+                rounded-full
+                bg-error
+                px-2
+                text-xs
+                font-bold
+                text-error-content
+              "
+            >
+              {unreadCount > 99
+                ? "99+"
+                : unreadCount}
+            </span>
+          )}
+
         </div>
 
         {/* Section name */}
@@ -21,18 +53,23 @@ const SectionCard = ({ section, onClick }) => {
           {section.name}
         </h3>
 
-        {/* Section description or meta info */}
+        {/* Section description */}
         <p className="text-sm text-base-content/60 mb-4">
-          {section.description || "Educational community"}
+          {section.description ||
+            "Educational community"}
         </p>
 
-        {/* Footer with chevron */}
+        {/* Footer */}
         <div className="flex items-center justify-between pt-2 border-t border-base-300/50">
+
           <span className="text-xs font-medium text-base-content/50">
             Tap to join
           </span>
+
           <ChevronRight className="w-5 h-5 text-base-content/30 group-hover:text-primary group-hover:translate-x-1 transition-all duration-200" />
+
         </div>
+
       </div>
     </button>
   );

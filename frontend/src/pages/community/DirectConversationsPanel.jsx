@@ -13,7 +13,7 @@ const matchesQuery = (user, query) => {
   );
 };
 
-const ConversationRow = ({ user, isOnline, onSelect }) => {
+const ConversationRow = ({ user, isOnline, onSelect,unreadCount=0 }) => {
   return (
     <button
       type="button"
@@ -50,9 +50,35 @@ const ConversationRow = ({ user, isOnline, onSelect }) => {
         <p className="truncate text-xs text-base-content/50">{user.email}</p>
       </div>
 
-      <span className="badge badge-outline badge-sm shrink-0">
-        {user.role === "admin" ? "Admin" : "Student"}
-      </span>
+      <div className="flex shrink-0 items-center gap-2">
+  {unreadCount > 0 && (
+    <span
+      className="
+        flex
+        min-w-6
+        h-6
+        items-center
+        justify-center
+        rounded-full
+        bg-error
+        px-2
+        text-xs
+        font-bold
+        text-error-content
+      "
+    >
+      {unreadCount > 99
+        ? "99+"
+        : unreadCount}
+    </span>
+  )}
+
+  <span className="badge badge-outline badge-sm">
+    {user.role === "admin"
+      ? "Admin"
+      : "Student"}
+  </span>
+</div>
     </button>
   );
 };
@@ -63,6 +89,9 @@ const DirectConversationsPanel = ({
   onSelectUser,
   authUser,
   onlineUsers = [],
+    unreadDirectMessageCounts = {},
+
+  
 }) => {
   const [searchQuery, setSearchQuery] = useState("");
   const query = searchQuery.trim().toLowerCase();
@@ -131,6 +160,11 @@ const DirectConversationsPanel = ({
               user={user}
               isOnline={onlineUsers.includes(Number(user.id))}
               onSelect={onSelectUser}
+              unreadCount={
+    unreadDirectMessageCounts[
+      Number(user.id)
+    ] || 0
+  }
             />
           ))}
         </div>

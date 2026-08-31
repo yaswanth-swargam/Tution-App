@@ -52,14 +52,28 @@ io.on("connection", (socket) => {
   // =========================
 
   socket.on("join_section", (sectionId) => {
-    const roomName = `section_${sectionId}`;
+  const roomName = `section_${sectionId}`;
 
-    socket.join(roomName);
+  // Leave previously joined section rooms
+  for (const room of socket.rooms) {
+    if (
+      room.startsWith("section_") &&
+      room !== roomName
+    ) {
+      socket.leave(room);
 
-    console.log(
-      `Socket ${socket.id} joined ${roomName}`
-    );
-  });
+      console.log(
+        `Socket ${socket.id} left ${room}`
+      );
+    }
+  }
+
+  socket.join(roomName);
+
+  console.log(
+    `Socket ${socket.id} joined ${roomName}`
+  );
+});
 
   // =========================
   // DISCONNECT

@@ -31,6 +31,7 @@ import {
   createSection,
   renameSection,
   deleteSection,
+  markSectionMessagesAsRead
 } from "../store/chatActions.js";
 
 // =========================
@@ -43,6 +44,9 @@ import {
   addMessage,
   addDirectMessage,
   setOnlineUsers,
+  incrementUnreadSectionCount,
+  incrementUnreadDirectMessageCount,
+  clearUnreadDirectMessageCount,
 } from "../store/chatSlice.js";
 
 // =========================
@@ -122,6 +126,9 @@ const CommunityPage = () => {
     isLoadingConversations,
     isLoadingDirectMessages,
     isSendingDirectMessage,
+
+    unreadSectionCounts,
+    unreadDirectMessageCounts,
   } = useSelector(
     (state) => state.chat
   );
@@ -201,40 +208,108 @@ const CommunityPage = () => {
     };
   }, [dispatch]);
 
-  // =========================
-  // SOCKET:
-  // SECTION MESSAGES
-  // =========================
-
+  
+  
   useEffect(() => {
-    const handleNewMessage =
-      (message) => {
-        if (
-          selectedSection &&
-          Number(message.section_id) ===
-            Number(selectedSection.id)
-        ) {
-          dispatch(
-            addMessage(message)
-          );
-        }
-      };
+  const handleNewMessage = (message) => {
+    const messageSectionId =
+      Number(message.section_id);
 
-    socket.on(
+    const currentSectionId =
+      selectedSection
+        ? Number(selectedSection.id)
+        : null;
+
+    console.log(
+      "🔥 REALTIME NEW MESSAGE:",
+      message
+    );
+
+    console.log(
+      "📍 Message section:",
+      messageSectionId,
+      "Current section:",
+      currentSectionId
+    );
+
+    // Only add the message if
+    // the user is currently viewing that section.
+    if (
+      currentSectionId === messageSectionId
+    ) {
+      dispatch(
+        addMessage(message)
+      );
+    }
+  };
+
+  socket.on(
+    "new_message",
+    handleNewMessage
+  );
+
+  return () => {
+    socket.off(
       "new_message",
       handleNewMessage
     );
+  };
+}, [
+  dispatch,
+  selectedSection,
+]);
 
-    return () => {
-      socket.off(
-        "new_message",
-        handleNewMessage
-      );
-    };
-  }, [
-    dispatch,
-    selectedSection,
-  ]);
+
+// =========================
+// SOCKET:
+// UNREAD SECTION MESSAGES
+// =========================
+
+useEffect(() => {
+  const handleUnreadMessage = (data) => {
+    const sectionId =
+      Number(data.section_id);
+
+    const currentSectionId =
+      selectedSection
+        ? Number(selectedSection.id)
+        : null;
+
+    console.log(
+      "🔴 REALTIME SECTION UNREAD:",
+      data
+    );
+
+    // User is already inside this section.
+    // Don't show an unread badge.
+    if (
+      currentSectionId === sectionId
+    ) {
+      return;
+    }
+
+    dispatch(
+      incrementUnreadSectionCount(
+        sectionId
+      )
+    );
+  };
+
+  socket.on(
+    "section_message_unread",
+    handleUnreadMessage
+  );
+
+  return () => {
+    socket.off(
+      "section_message_unread",
+      handleUnreadMessage
+    );
+  };
+}, [
+  dispatch,
+  selectedSection,
+]);
 
   // =========================
   // SOCKET:
@@ -297,6 +372,63 @@ const CommunityPage = () => {
     directMessages,
   ]);
 
+
+
+
+  // =========================
+// SOCKET:
+// UNREAD DIRECT MESSAGES
+// =========================
+
+useEffect(() => {
+  const handleDirectMessageUnread = (data) => {
+    if (!authUser?.id) {
+      return;
+    }
+
+    const senderId =
+      Number(data.user_id);
+
+    const currentUserId =
+      selectedDirectUser
+        ? Number(selectedDirectUser.id)
+        : null;
+
+    console.log(
+      "🔴 REALTIME DIRECT UNREAD:",
+      data
+    );
+
+    // Already inside this conversation
+    if (
+      currentUserId === senderId
+    ) {
+      return;
+    }
+
+    dispatch(
+      incrementUnreadDirectMessageCount(
+        senderId
+      )
+    );
+  };
+
+  socket.on(
+    "direct_message_unread",
+    handleDirectMessageUnread
+  );
+
+  return () => {
+    socket.off(
+      "direct_message_unread",
+      handleDirectMessageUnread
+    );
+  };
+}, [
+  dispatch,
+  authUser?.id,
+  selectedDirectUser,
+]);
   // =========================
   // OPEN MESSAGES PAGE
   // =========================
@@ -326,94 +458,97 @@ const CommunityPage = () => {
   // SELECT SECTION
   // =========================
 
-  const handleSelectSection =
-    (section) => {
-      setCommunityView("community");
+  const handleSelectSection = (section) => {
+  setCommunityView("community");
 
-      // Close direct chat
-      dispatch(
-        setSelectedDirectUser(null)
-      );
+  // Close direct chat
+  dispatch(
+    setSelectedDirectUser(null)
+  );
 
-      // Open section
-      dispatch(
-        setSelectedSection(section)
-      );
+  // Open section
+  dispatch(
+    setSelectedSection(section)
+  );
 
-      // Fetch messages
-      dispatch(
-        fetchMessages(section.id)
-      );
+  // Fetch messages
+  dispatch(
+    fetchMessages(section.id)
+  );
 
-      // Fetch members
-      dispatch(
-        fetchSectionMembers(
-          section.id
-        )
-      );
+  // Mark section messages as read
+  dispatch(
+    markSectionMessagesAsRead(section.id)
+  );
 
-      // Admin:
-      // fetch available students
-      if (
-        authUser?.role === "admin"
-      ) {
-        dispatch(
-          fetchAvailableStudents(
-            section.id
-          )
-        );
-      }
+  // Fetch members
+  dispatch(
+    fetchSectionMembers(section.id)
+  );
 
-      // Join section room
-      const joinSection = () => {
-        socket.emit(
-          "join_section",
-          section.id
-        );
-      };
+  // Admin:
+  // fetch available students
+  if (authUser?.role === "admin") {
+    dispatch(
+      fetchAvailableStudents(section.id)
+    );
+  }
 
-      if (socket.connected) {
-        joinSection();
-      } else {
-        socket.once(
-          "connect",
-          joinSection
-        );
-      }
+  // Join section room
+  const joinSection = () => {
+    socket.emit(
+      "join_section",
+      section.id
+    );
+  };
 
-      setSelectedStudentId("");
+  if (socket.connected) {
+    joinSection();
+  } else {
+    socket.once(
+      "connect",
+      joinSection
+    );
+  }
 
-      setShowGroupInfo(false);
+  setSelectedStudentId("");
 
-      setShowAddStudentModal(false);
-    };
+  setShowGroupInfo(false);
+
+  setShowAddStudentModal(false);
+};
 
   // =========================
   // SELECT DIRECT USER
   // =========================
 
-  const handleSelectDirectUser =
-    (user) => {
-      // Close section
-      dispatch(
-        setSelectedSection(null)
-      );
+  const handleSelectDirectUser = (user) => {
+  // Close section
+  dispatch(
+    setSelectedSection(null)
+  );
 
-      // Select direct user
-      dispatch(
-        setSelectedDirectUser(user)
-      );
+  // Select direct user
+  dispatch(
+    setSelectedDirectUser(user)
+  );
 
-      // Fetch messages
-      dispatch(
-        fetchDirectMessages(user.id)
-      );
+  // Clear unread count for this conversation
+  dispatch(
+    clearUnreadDirectMessageCount(
+      Number(user.id)
+    )
+  );
 
-      setShowGroupInfo(false);
+  // Fetch messages
+  dispatch(
+    fetchDirectMessages(user.id)
+  );
 
-      setShowAddStudentModal(false);
-    };
+  setShowGroupInfo(false);
 
+  setShowAddStudentModal(false);
+};
   // =========================
   // BACK TO COMMUNITY HOME
   // =========================
@@ -654,16 +789,18 @@ const CommunityPage = () => {
         !selectedDirectUser &&
         communityView === "community" && (
           <SectionsView
-  sections={sections}
-  isLoadingSections={isLoadingSections}
-  onSelectSection={handleSelectSection}
-  authUser={authUser}
-  onCreateSection={handleCreateSection}
+              sections={sections}
+              isLoadingSections={isLoadingSections}
+              onSelectSection={handleSelectSection}
+              authUser={authUser}
+              onCreateSection={handleCreateSection}
+  
+              unreadSectionCounts={unreadSectionCounts}
 
-  conversations={conversations}
-  isLoadingConversations={isLoadingConversations}
-  onSelectDirectUser={handleSelectDirectUser}
-  onlineUsers={onlineUsers}
+              conversations={conversations}
+              isLoadingConversations={isLoadingConversations}
+              onSelectDirectUser={handleSelectDirectUser}
+              onlineUsers={onlineUsers}
 />
         )}
 
@@ -725,12 +862,13 @@ const CommunityPage = () => {
 
             <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6 md:px-8">
               <DirectConversationsPanel
-                conversations={conversations}
-                isLoading={isLoadingConversations}
-                onSelectUser={handleSelectDirectUser}
-                authUser={authUser}
-                onlineUsers={onlineUsers}
-              />
+  conversations={conversations}
+  isLoading={isLoadingConversations}
+  onSelectUser={handleSelectDirectUser}
+  authUser={authUser}
+  onlineUsers={onlineUsers}
+  unreadDirectMessageCounts={unreadDirectMessageCounts}
+/>
             </div>
 
           </div>

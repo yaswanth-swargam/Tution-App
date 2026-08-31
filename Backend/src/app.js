@@ -11,8 +11,13 @@ import sectionRoutes from "./routes/sectionRoutes.js";
 import messageRoutes from "./routes/messageRoutes.js";
 import directMessageRoutes from "./routes/directMessageRoutes.js";
 import uploadRoutes from "./routes/uploadRoutes.js";
+import messageReadRoutes from "./routes/messageReadRoutes.js";
 
 const app = express();
+
+// ==========================================
+// MIDDLEWARE
+// ==========================================
 
 app.use(
   cors({
@@ -21,7 +26,11 @@ app.use(
   })
 );
 
-app.use(express.json({ limit: "10mb" }));
+app.use(
+  express.json({
+    limit: "10mb",
+  })
+);
 
 app.use(
   express.urlencoded({
@@ -32,11 +41,28 @@ app.use(
 
 app.use(cookieParser());
 
+// ==========================================
+// ROUTES
+// ==========================================
+
 app.use("/api/auth", authRoutes);
+
 app.use("/api/sections", sectionRoutes);
+
 app.use("/api/messages", messageRoutes);
-app.use("/api/direct-messages", directMessageRoutes);
+
+app.use("/api/messages", messageReadRoutes);
+
+app.use(
+  "/api/direct-messages",
+  directMessageRoutes
+);
+
 app.use("/api/uploads", uploadRoutes);
+
+// ==========================================
+// HEALTH CHECK
+// ==========================================
 
 app.get("/", (req, res) => {
   res.json({

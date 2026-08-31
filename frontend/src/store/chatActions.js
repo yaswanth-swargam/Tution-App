@@ -20,6 +20,10 @@ import {
   setLoadingAvailableStudents,
   setAddingStudent,
   setRemovingStudent,
+  setUnreadSectionCount,
+  setUnreadSectionCounts,
+  clearUnreadSectionCount,
+  setLoadingUnreadSections,
 } from "./chatSlice.js";
 
 export const fetchSections=()=>async (dispatch)=>{
@@ -27,8 +31,9 @@ export const fetchSections=()=>async (dispatch)=>{
         dispatch(setLoadingSections(true));
 
         const response=await axios.get('/sections');
-        dispatch(setSections(response.data))
-        
+  dispatch(setSections(response.data));
+
+  dispatch(fetchAllUnreadSectionMessages());        
     }catch (error) {
     console.error(
       "Error fetching sections:",
@@ -123,23 +128,26 @@ export const fetchSectionMembers = (sectionId) => async (dispatch) => {
       `/sections/${sectionId}/members`
     );
 
-    console.log("Section members:", response.data);
+    console.log(
+      "👥 MEMBERS API RESPONSE:",
+      response.data
+    );
 
     dispatch(setMembers(response.data.members));
 
   } catch (error) {
     console.error(
       "Error fetching section members:",
-      error.response?.data?.message || error.message
+      error.response?.data?.message ||
+        error.message
     );
 
     dispatch(setMembers([]));
+
   } finally {
     dispatch(setLoadingMembers(false));
   }
 };
-
-
 
 //direct messs
 
@@ -385,6 +393,132 @@ export const deleteSection =
     } catch (error) {
       console.error(
         "Error deleting section:",
+        error.response?.data?.message ||
+          error.message
+      );
+
+      throw error;
+    }
+  };
+
+
+
+
+  // ==========================================
+// FETCH UNREAD SECTION MESSAGES
+// ==========================================
+
+export const fetchUnreadSectionMessages =
+  (sectionId) => async (dispatch) => {
+    try {
+      const response = await axios.get(
+        `/messages/section/${sectionId}/unread`
+      );
+
+      dispatch(
+        setUnreadSectionCount({
+          sectionId,
+          count: response.data.unreadCount,
+        })
+      );
+
+      return response.data;
+
+    } catch (error) {
+      console.error(
+        "Error fetching unread section messages:",
+        error.response?.data?.message ||
+          error.message
+      );
+
+      return null;
+    }
+  };
+
+
+// ==========================================
+// FETCH UNREAD COUNTS FOR ALL SECTIONS
+// ==========================================
+
+export const fetchAllUnreadSectionMessages =
+  () => async (dispatch, getState) => {
+    try {
+      dispatch(setLoadingUnreadSections(true));
+
+      const sections =
+        getState().chat.sections || [];
+
+      const results = await Promise.all(
+        sections.map(async (section) => {
+          try {
+            const response = await axios.get(
+              `/messages/section/${section.id}/unread`
+            );
+
+            return {
+              sectionId: section.id,
+              count: response.data.unreadCount,
+            };
+
+          } catch (error) {
+            console.error(
+              `Error fetching unread count for section ${section.id}:`,
+              error.response?.data?.message ||
+                error.message
+            );
+
+            return {
+              sectionId: section.id,
+              count: 0,
+            };
+          }
+        })
+      );
+
+      const unreadCounts = {};
+
+      results.forEach(
+        ({ sectionId, count }) => {
+          unreadCounts[sectionId] = count;
+        }
+      );
+
+      dispatch(
+        setUnreadSectionCounts(
+          unreadCounts
+        )
+      );
+
+      return unreadCounts;
+
+    } finally {
+      dispatch(
+        setLoadingUnreadSections(false)
+      );
+    }
+  };
+
+
+// ==========================================
+// MARK SECTION MESSAGES AS READ
+// ==========================================
+
+export const markSectionMessagesAsRead =
+  (sectionId) => async (dispatch) => {
+    try {
+      const response = await axios.put(
+        `/messages/section/${sectionId}/read`
+      );
+
+      dispatch(
+        clearUnreadSectionCount(sectionId)
+      );
+
+      return response.data;
+
+    } catch (error) {
+      console.error(
+        "Error marking section messages as read:",
         error.response?.data?.message ||
           error.message
       );

@@ -142,21 +142,84 @@ export const sendMessage = async (req, res) => {
     // =========================
     // SOCKET.IO REAL-TIME EVENT
     // =========================
+    
 
-    const io = getIO();
+    // =========================
+// SOCKET.IO REAL-TIME EVENT
+// =========================
 
-    const roomName =
-      `section_${sectionId}`;
+const io = getIO();
 
-    console.log(
-      `🔥 Emitting new_message to ${roomName}:`,
-      newMessage
-    );
+const roomName = `section_${sectionId}`;
 
-    io.to(roomName).emit(
-      "new_message",
-      newMessage
-    );
+// ==========================================
+// 1. EXISTING REALTIME CHAT
+// ==========================================
+
+console.log(
+  `🔥 Emitting new_message to ${roomName}:`,
+  newMessage
+);
+
+io.to(roomName).emit(
+  "new_message",
+  newMessage
+);
+
+// ==========================================
+// 2. GET USERS WHO CAN ACCESS THIS SECTION
+// ==========================================
+
+// Students belonging to this section
+const [sectionStudents] = await pool.query(
+  `
+    SELECT user_id
+    FROM section_members
+    WHERE section_id = ?
+  `,
+  [sectionId]
+);
+
+// All administrators can access all sections
+const [admins] = await pool.query(
+  `
+    SELECT id AS user_id
+    FROM users
+    WHERE role = 'admin'
+  `
+);
+
+// Combine students + admins
+const recipients = [
+  ...sectionStudents,
+  ...admins,
+];
+
+// ==========================================
+// 3. SEND UNREAD EVENT
+// ==========================================
+
+for (const recipient of recipients) {
+  const recipientId =
+    Number(recipient.user_id);
+
+  // Don't notify the sender
+  if (recipientId === Number(userId)) {
+    continue;
+  }
+
+  console.log(
+    `🔴 Sending section unread event to user_${recipientId}`
+  );
+
+  io.to(`user_${recipientId}`).emit(
+    "section_message_unread",
+    {
+      section_id: Number(sectionId),
+      message_id: Number(newMessage.id),
+    }
+  );
+}
 
     // =========================
     // API RESPONSE

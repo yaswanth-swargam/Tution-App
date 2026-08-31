@@ -212,6 +212,24 @@ export const sendDirectMessage = async (req, res) => {
         newMessage
       );
 
+
+
+      // ==========================================
+// REALTIME UNREAD NOTIFICATION
+// ==========================================
+
+io.to(`user_${receiverId}`).emit(
+  "direct_message_unread",
+  {
+    user_id: Number(senderId),
+    message_id: Number(newMessage.id),
+  }
+);
+
+console.log(
+  `🔴 Direct unread event sent to user_${receiverId}`
+);
+
       console.log(
         "9️⃣ Direct message emitted successfully"
       );

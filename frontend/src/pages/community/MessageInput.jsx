@@ -21,14 +21,18 @@ const MessageInput = ({
 
   const [isUploading, setIsUploading] =
     useState(false);
+  
+  const [uploadProgress, setUploadProgress] =
+  useState(0);
 
   const handleFileChange = (e) => {
-    const file = e.target.files?.[0];
+  const file = e.target.files?.[0];
 
-    if (!file) return;
+  if (!file) return;
 
-    setSelectedFile(file);
-  };
+  setSelectedFile(file);
+  setUploadProgress(0);
+};
 
   const removeFile = () => {
     setSelectedFile(null);
@@ -56,8 +60,17 @@ const MessageInput = ({
       if (selectedFile) {
         setIsUploading(true);
 
-        uploadedFileData =
-          await uploadFile(selectedFile);
+        // uploadedFileData =
+        //   await uploadFile(selectedFile);
+
+        setUploadProgress(0);
+
+uploadedFileData = await uploadFile(
+  selectedFile,
+  (progress) => {
+    setUploadProgress(progress);
+  }
+);
       }
 
       console.log(
@@ -93,6 +106,7 @@ const MessageInput = ({
 
     } finally {
       setIsUploading(false);
+      setUploadProgress(0);
     }
   };
 
@@ -115,47 +129,56 @@ const MessageInput = ({
       {/* FILE PREVIEW */}
 
       {selectedFile && (
-        <div
-          className="
-            mb-3
-            flex
-            items-center
-            justify-between
-            gap-3
-            rounded-lg
-            bg-base-200
-            px-3
-            py-2
-          "
-        >
-          <div className="flex min-w-0 items-center gap-2">
+  <div
+    className="
+      mb-3
+      rounded-lg
+      bg-base-200
+      px-3
+      py-2
+    "
+  >
+    <div className="flex items-center justify-between gap-3">
+      <div className="flex min-w-0 items-center gap-2">
+        <File className="h-5 w-5 shrink-0 text-primary" />
 
-            <File className="h-5 w-5 shrink-0 text-primary" />
+        <span className="truncate text-sm">
+          {selectedFile.name}
+        </span>
+      </div>
 
-            <span className="truncate text-sm">
-              {selectedFile.name}
-            </span>
+      <button
+        type="button"
+        onClick={removeFile}
+        disabled={isDisabled}
+        className="
+          btn
+          btn-ghost
+          btn-xs
+          btn-circle
+          shrink-0
+        "
+        aria-label="Remove file"
+      >
+        <X className="h-4 w-4" />
+      </button>
+    </div>
 
-          </div>
+    {isUploading && (
+      <div className="mt-2 flex items-center gap-3">
+        <progress
+          className="progress progress-primary h-2 flex-1"
+          value={uploadProgress}
+          max="100"
+        />
 
-          <button
-            type="button"
-            onClick={removeFile}
-            disabled={isDisabled}
-            className="
-              btn
-              btn-ghost
-              btn-xs
-              btn-circle
-              shrink-0
-            "
-            aria-label="Remove file"
-          >
-            <X className="h-4 w-4" />
-          </button>
-
-        </div>
-      )}
+        <span className="w-10 text-right text-xs text-base-content/60">
+          {uploadProgress}%
+        </span>
+      </div>
+    )}
+  </div>
+)}
 
       <div className="flex items-center gap-2">
 
