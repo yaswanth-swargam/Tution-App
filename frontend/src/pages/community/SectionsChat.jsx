@@ -53,11 +53,12 @@ const SectionChat = ({
       }
       footer={
         <MessageInput
-          content={content}
-          onContentChange={onContentChange}
-          onSendMessage={onSendMessage}
-          isSendingMessage={isSendingMessage}
-        />
+  content={content}
+  onContentChange={onContentChange}
+  onSendMessage={onSendMessage}
+  isSendingMessage={isSendingMessage}
+  authUser={authUser}
+/>
       }
     >
       <MessageList

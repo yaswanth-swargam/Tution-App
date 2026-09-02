@@ -1,3 +1,4 @@
+import path from "path";
 import cloudinary from "../lib/cloudinary.js";
 
 export const uploadFile = async (req, res) => {
@@ -8,34 +9,56 @@ export const uploadFile = async (req, res) => {
       });
     }
 
-    const isImage =
-      req.file.mimetype.startsWith("image/");
+    const isImage = req.file.mimetype.startsWith("image/");
+    const resourceType = isImage ? "image" : "raw";
 
-    const resourceType =
-      isImage ? "image" : "raw";
+    // Get original filename and extension
+    const extension = path.extname(req.file.originalname).toLowerCase();
 
-    const uploadResult = await new Promise(
-      (resolve, reject) => {
-        const uploadStream =
-          cloudinary.uploader.upload_stream(
-            {
-              folder: "tution-app",
-              resource_type: resourceType,
-              use_filename: true,
-              unique_filename: true,
-            },
-            (error, result) => {
-              if (error) {
-                reject(error);
-              } else {
-                resolve(result);
-              }
-            }
-          );
+    // Remove extension and sanitize filename
+    const baseName = path
+      .basename(req.file.originalname, extension)
+      .replace(/[^\w-]/g, "_");
 
-        uploadStream.end(req.file.buffer);
-      }
-    );
+    // Make filename unique
+    const uniqueName = `${baseName}_${Date.now()}`;
+
+    const uploadResult = await new Promise((resolve, reject) => {
+      const uploadStream = cloudinary.uploader.upload_stream(
+        {
+          folder: "tution-app",
+          resource_type: resourceType,
+
+          // Important:
+          // For raw files, keep the extension in the public ID.
+          public_id: isImage
+            ? uniqueName
+            : `${uniqueName}${extension}`,
+
+          unique_filename: false,
+
+          timeout: 120000,
+        },
+
+        (error, result) => {
+          if (error) {
+            reject(error);
+          } else {
+            resolve(result);
+          }
+        }
+      );
+
+      uploadStream.on("error", reject);
+
+      uploadStream.end(req.file.buffer);
+    });
+
+    console.log("Cloudinary upload successful:", {
+      url: uploadResult.secure_url,
+      public_id: uploadResult.public_id,
+      resource_type: resourceType,
+    });
 
     return res.status(200).json({
       message: "File uploaded successfully",
@@ -49,15 +72,16 @@ export const uploadFile = async (req, res) => {
         resource_type: resourceType,
       },
     });
-
   } catch (error) {
-    console.error(
-      "File upload error:",
-      error
-    );
+    console.error("File upload error:", {
+      message: error.message,
+      http_code: error.http_code,
+      name: error.name,
+    });
 
     return res.status(500).json({
       message: "Failed to upload file",
+      error: error.message,
     });
   }
 };

@@ -6,17 +6,36 @@ const upload = multer({
   storage,
 
   limits: {
-    fileSize: 10 * 1024 * 1024,
+    fileSize: 10 * 1024 * 1024, // 10 MB
   },
 
   fileFilter: (req, file, cb) => {
     const allowedTypes = [
+      // Images
       "image/jpeg",
       "image/png",
       "image/webp",
+
+      // Documents
       "application/pdf",
       "application/msword",
       "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+
+      // Presentations
+      "application/vnd.ms-powerpoint",
+      "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+
+      // Spreadsheets
+      "application/vnd.ms-excel",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+
+      // Text
+      "text/plain",
+
+      // Videos
+      "video/mp4",
+      "video/webm",
+      "video/quicktime",
     ];
 
     if (allowedTypes.includes(file.mimetype)) {
@@ -24,7 +43,7 @@ const upload = multer({
     } else {
       cb(
         new Error(
-          "Only JPG, PNG, WEBP, PDF, DOC, and DOCX files are allowed"
+          "File type not allowed. Supported: JPG, PNG, WEBP, PDF, DOC, DOCX, PPT, PPTX, XLS, XLSX, TXT, MP4, WEBM, MOV."
         )
       );
     }

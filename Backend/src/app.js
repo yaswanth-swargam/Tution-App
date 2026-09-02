@@ -12,7 +12,7 @@ import messageRoutes from "./routes/messageRoutes.js";
 import directMessageRoutes from "./routes/directMessageRoutes.js";
 import uploadRoutes from "./routes/uploadRoutes.js";
 import messageReadRoutes from "./routes/messageReadRoutes.js";
-
+import studyMaterialRoutes from './routes/studyMaterialRoutes.js'
 const app = express();
 
 // ==========================================
@@ -57,7 +57,10 @@ app.use(
   "/api/direct-messages",
   directMessageRoutes
 );
-
+app.use(
+  "/api/study-materials",
+  studyMaterialRoutes
+);
 app.use("/api/uploads", uploadRoutes);
 
 // ==========================================

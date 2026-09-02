@@ -9,13 +9,14 @@ export const sendMessage = async (req, res) => {
   const { sectionId } = req.params;
 
   const {
-    content,
-    file_url,
-    file_public_id,
-    file_name,
-    file_type,
-    file_size,
-  } = req.body;
+  content,
+  file_url,
+  file_public_id,
+  file_name,
+  file_type,
+  file_size,
+  save_to_materials,
+} = req.body;
 
   const userId = req.user.id;
   const role = req.user.role;
@@ -138,6 +139,69 @@ export const sendMessage = async (req, res) => {
     );
 
     const newMessage = messages[0];
+
+
+    // ==========================================
+// AUTO SAVE ADMIN ATTACHMENT AS MATERIAL
+// ==========================================
+
+if (
+  role === "admin" &&
+  file_url &&
+  save_to_materials === true
+) {
+  try {
+    await pool.query(
+      `
+        INSERT INTO study_materials (
+          section_id,
+          title,
+          description,
+          material_type,
+          file_url,
+          file_public_id,
+          file_name,
+          file_type,
+          file_size,
+          created_by
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `,
+      [
+        Number(sectionId),
+
+        // Material title
+        file_name || "Study Material",
+
+        // Message text becomes description
+        content?.trim() || null,
+
+        // Uploaded file
+        "file",
+
+        file_url,
+        file_public_id || null,
+        file_name || null,
+        file_type || null,
+        file_size || null,
+
+        Number(userId),
+      ]
+    );
+
+    console.log(
+      `📚 Study material created from message: ${file_name}`
+    );
+
+  } catch (materialError) {
+    // Don't break the chat message
+    // if material creation fails.
+    console.error(
+      "⚠️ Failed to create study material:",
+      materialError
+    );
+  }
+}
 
     // =========================
     // SOCKET.IO REAL-TIME EVENT
