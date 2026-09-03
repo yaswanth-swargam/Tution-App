@@ -13,6 +13,8 @@ import directMessageRoutes from "./routes/directMessageRoutes.js";
 import uploadRoutes from "./routes/uploadRoutes.js";
 import messageReadRoutes from "./routes/messageReadRoutes.js";
 import studyMaterialRoutes from './routes/studyMaterialRoutes.js'
+import notificationRoutes from "./routes/notificationRoutes.js";
+
 const app = express();
 
 // ==========================================
@@ -62,7 +64,7 @@ app.use(
   studyMaterialRoutes
 );
 app.use("/api/uploads", uploadRoutes);
-
+app.use("/api/notifications", notificationRoutes);
 // ==========================================
 // HEALTH CHECK
 // ==========================================
