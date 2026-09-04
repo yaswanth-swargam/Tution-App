@@ -8,6 +8,7 @@ import {
   markAsRead,
   markAllAsRead,
   sendNotification,
+  getNotificationLogs,
 } from "../controllers/notification.controller.js";
 
 const router = express.Router();
@@ -15,7 +16,7 @@ const router = express.Router();
 
 // Student/Admin
 router.get("/", protectRoute, getNotifications);
-
+router.get("/logs", protectRoute, getNotificationLogs);
 router.get("/unread-count", protectRoute, getUnreadCount);
 
 router.patch("/:id/read", protectRoute, markAsRead);

@@ -13,4 +13,5 @@ export const ROUTES = {
   AI: "/dashboard/ai",
   PROFILE: "/dashboard/profile",
   SETTINGS: "/dashboard/settings",
+  NOTIFICATIONS: "/dashboard/notifications",
 };

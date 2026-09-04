@@ -20,6 +20,7 @@ import {
 } from "../store/studyMaterialActions.js";
 
 
+
 // ==========================================
 // MAIN PAGE
 // ==========================================
@@ -506,6 +507,9 @@ const handleDeleteMaterial = async (material) => {
   />
 )}
 
+
+
+   
     </div>
   );
 };

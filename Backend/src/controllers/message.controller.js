@@ -193,6 +193,94 @@ if (
       `📚 Study material created from message: ${file_name}`
     );
 
+        // ==========================================
+    // NOTIFY STUDENTS AND ADMIN
+    // ==========================================
+
+    const [students] = await pool.query(
+      `
+      SELECT DISTINCT
+        u.id
+      FROM users u
+      INNER JOIN section_members sm
+        ON u.id = sm.user_id
+      WHERE sm.section_id = ?
+        AND u.role = 'student'
+      `,
+      [sectionId]
+    );
+
+    // Get all admins
+    const [admins] = await pool.query(
+      `
+      SELECT id
+      FROM users
+      WHERE role = 'admin'
+      `
+    );
+
+    const recipients = [
+      ...students,
+      ...admins,
+    ];
+
+    if (recipients.length > 0) {
+      // Get the newly created material
+      const [createdMaterial] = await pool.query(
+        `
+        SELECT id, title
+        FROM study_materials
+        WHERE section_id = ?
+          AND file_public_id = ?
+        ORDER BY id DESC
+        LIMIT 1
+        `,
+        [
+          sectionId,
+          file_public_id || null,
+        ]
+      );
+
+      if (createdMaterial.length > 0) {
+        const material = createdMaterial[0];
+
+        const notificationValues = recipients.map(
+          (recipient) => [
+            recipient.id,
+            "MATERIAL",
+            "New Study Material",
+            `${material.title} has been added to your section.`,
+            material.id,
+            "STUDY_MATERIAL",
+          ]
+        );
+
+        const notificationPlaceholders = notificationValues
+          .map(() => "(?, ?, ?, ?, ?, ?)")
+          .join(",");
+
+        await pool.query(
+          `
+          INSERT INTO notifications
+          (
+            user_id,
+            type,
+            title,
+            message,
+            reference_id,
+            reference_type
+          )
+          VALUES ${notificationPlaceholders}
+          `,
+          notificationValues.flat()
+        );
+
+        console.log(
+          `🔔 Material notification sent to ${recipients.length} users`
+        );
+      }
+    }
+
   } catch (materialError) {
     // Don't break the chat message
     // if material creation fails.

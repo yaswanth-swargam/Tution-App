@@ -180,6 +180,80 @@ export const createStudyMaterial = async (req, res) => {
       [result.insertId]
     );
 
+
+
+    //
+        // ==========================================
+    // NOTIFY STUDENTS AND ADMIN
+    // ==========================================
+
+    const [students] = await pool.query(
+      `
+      SELECT DISTINCT
+        u.id
+      FROM users u
+      INNER JOIN section_members sm
+        ON u.id = sm.user_id
+      WHERE sm.section_id = ?
+        AND u.role = 'student'
+      `,
+      [sectionId]
+    );
+
+    // Get all admins
+    const [admins] = await pool.query(
+      `
+      SELECT id
+      FROM users
+      WHERE role = 'admin'
+      `
+    );
+
+    const recipients = [
+      ...students,
+      ...admins,
+    ];
+
+    if (recipients.length > 0) {
+      const material = materials[0];
+
+      const notificationValues = recipients.map(
+        (recipient) => [
+          recipient.id,
+          "MATERIAL",
+          "New Study Material",
+          `${material.title} has been added to your section.`,
+          material.id,
+          "STUDY_MATERIAL",
+        ]
+      );
+
+      const notificationPlaceholders = notificationValues
+        .map(() => "(?, ?, ?, ?, ?, ?)")
+        .join(",");
+
+      await pool.query(
+        `
+        INSERT INTO notifications
+        (
+          user_id,
+          type,
+          title,
+          message,
+          reference_id,
+          reference_type
+        )
+        VALUES ${notificationPlaceholders}
+        `,
+        notificationValues.flat()
+      );
+
+      console.log(
+        `🔔 Material notification sent to ${recipients.length} users`
+      );
+    }
+
+
     return res.status(201).json(
       materials[0]
     );

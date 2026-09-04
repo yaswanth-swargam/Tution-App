@@ -10,8 +10,10 @@ import ProfilePage from "../pages/ProfilePage";
 import SettingsPage from "../pages/SettingsPage";
 import LoginPage from "../pages/LoginPage";
 import NotFoundPage from "../pages/NotFoundPage";
+import NotificationsPage from "../pages/NotificationsPage";
 
 import ProtectedRoute from "./ProtectedRoute";
+import AdminRoute from "./AdminRoute";
 
 const PublicRoute = ({ children }) => {
   const { authUser } = useSelector((state) => state.auth);
@@ -50,21 +52,58 @@ const AppRouter = () => {
           element={<Navigate to="community" replace />}
         />
 
-        <Route path="community" element={<CommunityPage />} />
-        <Route path="materials" element={<MaterialsPage />} />
-        <Route path="ai" element={<AIPage />} />
-        <Route path="profile" element={<ProfilePage />} />
-        <Route path="settings" element={<SettingsPage />} />
+        <Route
+          path="community"
+          element={<CommunityPage />}
+        />
+
+        <Route
+          path="materials"
+          element={<MaterialsPage />}
+        />
+
+        <Route
+          path="ai"
+          element={<AIPage />}
+        />
+
+        {/* Admin Only */}
+        <Route
+          path="notifications"
+          element={
+            <AdminRoute>
+              <NotificationsPage />
+            </AdminRoute>
+          }
+        />
+
+        <Route
+          path="profile"
+          element={<ProfilePage />}
+        />
+
+        <Route
+          path="settings"
+          element={<SettingsPage />}
+        />
       </Route>
 
       {/* Default */}
       <Route
         path="/"
-        element={<Navigate to="/dashboard/community" replace />}
+        element={
+          <Navigate
+            to="/dashboard/community"
+            replace
+          />
+        }
       />
 
       {/* 404 */}
-      <Route path="*" element={<NotFoundPage />} />
+      <Route
+        path="*"
+        element={<NotFoundPage />}
+      />
     </Routes>
   );
 };

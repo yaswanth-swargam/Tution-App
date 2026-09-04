@@ -1,8 +1,6 @@
 import { Search } from "lucide-react";
 import { useSelector } from "react-redux";
-
 import NotificationBell from "./NotificationBell";
-
 const Navbar = () => {
   const { authUser } = useSelector((state) => state.auth);
   console.log(authUser)
@@ -20,6 +18,9 @@ const Navbar = () => {
           Pick up where you left off
         </p>
       </div>
+
+
+      
 
       {/* <label className="hidden min-w-[240px] max-w-sm flex-1 items-center gap-2 rounded-xl border border-base-300 bg-base-100 px-3 py-2 text-sm text-slate-500 transition-colors duration-150 focus-within:border-primary/40 focus-within:ring-2 focus-within:ring-primary/15 md:flex">
         <SearchS size={16} />

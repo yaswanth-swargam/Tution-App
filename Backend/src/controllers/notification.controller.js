@@ -1,5 +1,5 @@
 import pool from "../lib/db.js";
-
+import {sendNotificationEmail} from '../lib/mail.js'
 // Get logged-in user's notifications
 export const getNotifications = async (req, res) => {
   try {
@@ -55,7 +55,42 @@ export const getUnreadCount = async (req, res) => {
   }
 };
 
+// Get notification sending history for admin
+export const getNotificationLogs = async (req, res) => {
+  try {
+    // Only admin can view notification logs
+    if (req.user.role !== "admin") {
+      return res.status(403).json({
+        message: "Access denied. Admin only.",
+      });
+    }
 
+    const [logs] = await pool.query(
+      `SELECT
+        id,
+        title,
+        message,
+        recipient_count,
+        email_sent_count,
+        email_failed_count,
+        created_at
+       FROM notification_logs
+       WHERE admin_id = ?
+       ORDER BY created_at DESC`,
+      [req.user.id]
+    );
+
+    return res.status(200).json({
+      logs,
+    });
+  } catch (error) {
+    console.error("Get notification logs error:", error);
+
+    return res.status(500).json({
+      message: "Failed to fetch notification logs",
+    });
+  }
+};
 // Mark one notification as read
 export const markAsRead = async (req, res) => {
   try {
@@ -112,6 +147,7 @@ export const markAllAsRead = async (req, res) => {
 };
 
 
+// Admin sends notification to selected sections
 // Admin sends notification to selected sections
 export const sendNotification = async (req, res) => {
   try {
@@ -177,9 +213,90 @@ export const sendNotification = async (req, res) => {
       notificationValues.flat()
     );
 
+    // Validate email addresses before sending
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    const validEmailStudents = students.filter(
+      (student) =>
+        typeof student.email === "string" &&
+        emailRegex.test(student.email.trim())
+    );
+
+    const invalidEmailStudents = students.filter(
+      (student) =>
+        typeof student.email !== "string" ||
+        !emailRegex.test(student.email.trim())
+    );
+
+    // Send email only to students with valid email addresses
+    const emailResults = await Promise.allSettled(
+      validEmailStudents.map((student) =>
+        sendNotificationEmail({
+          to: student.email.trim(),
+          title,
+          message,
+        })
+      )
+    );
+
+    // Count successfully sent emails
+    const emailSentCount = emailResults.filter(
+      (result) => result.status === "fulfilled"
+    ).length;
+
+    // Count both invalid emails and actual sending failures
+    const emailSendFailedCount = emailResults.filter(
+      (result) => result.status === "rejected"
+    ).length;
+
+    const emailFailedCount =
+      emailSendFailedCount + invalidEmailStudents.length;
+
+    // Log failed email attempts
+    emailResults.forEach((result, index) => {
+      if (result.status === "rejected") {
+        console.error(
+          `Failed to send notification email to ${validEmailStudents[index].email}:`,
+          result.reason
+        );
+      }
+    });
+
+    // Log invalid email addresses
+    invalidEmailStudents.forEach((student) => {
+      console.error(
+        `Invalid email address for ${student.full_name}:`,
+        student.email
+      );
+    });
+
+    // Save notification sending history for the admin
+    await pool.query(
+      `INSERT INTO notification_logs
+       (
+         admin_id,
+         title,
+         message,
+         recipient_count,
+         email_sent_count,
+         email_failed_count
+       )
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [
+        req.user.id,
+        title,
+        message,
+        students.length,
+        emailSentCount,
+        emailFailedCount,
+      ]
+    );
+
     return res.status(201).json({
       message: "Notification sent successfully",
       recipientCount: students.length,
+      emailSentCount,
+      emailFailedCount,
     });
   } catch (error) {
     console.error("Send notification error:", error);

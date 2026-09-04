@@ -1,5 +1,4 @@
 import { Mail, MessageCircle, Shield, User } from "lucide-react";
-
 const MemberProfilePopover = ({
   member,
   currentUser,
