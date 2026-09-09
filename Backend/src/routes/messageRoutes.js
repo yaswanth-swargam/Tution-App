@@ -1,8 +1,7 @@
 import express from "express";
 
 import { sendMessage,sectionMessages } from "../controllers/message.controller.js";
-import protectRoute from "../middleware/auth.middleware.js";
-
+import protectRoute from '../middleware/auth.middleware.js'
 const router = express.Router();
 
 router.post(

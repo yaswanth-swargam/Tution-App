@@ -209,6 +209,7 @@ materialData = {
         justify-center
         bg-black/40
         p-4
+        h-75vh
       "
     >
 

@@ -14,7 +14,8 @@ import uploadRoutes from "./routes/uploadRoutes.js";
 import messageReadRoutes from "./routes/messageReadRoutes.js";
 import studyMaterialRoutes from './routes/studyMaterialRoutes.js'
 import notificationRoutes from "./routes/notificationRoutes.js";
-
+import aiRoutes from './routes/aiRoutes.js'
+import aiConversationRoutes from './routes/aiConversationRoutes.js'
 const app = express();
 
 // ==========================================
@@ -46,7 +47,7 @@ app.use(cookieParser());
 // ==========================================
 // ROUTES
 // ==========================================
-
+app.use('/api/ai/conversations',aiConversationRoutes)
 app.use("/api/auth", authRoutes);
 
 app.use("/api/sections", sectionRoutes);
@@ -65,6 +66,8 @@ app.use(
 );
 app.use("/api/uploads", uploadRoutes);
 app.use("/api/notifications", notificationRoutes);
+
+app.use('/api/ai',aiRoutes)
 // ==========================================
 // HEALTH CHECK
 // ==========================================

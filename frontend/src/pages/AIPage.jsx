@@ -1,56 +1,67 @@
-import { ArrowUpRight, Sparkles } from "lucide-react";
-import PageHeader from "../components/common/PageHeader";
 
-const prompts = [
-  "Explain this chapter in simple terms",
-  "Make a 10-question quiz",
-  "Summarize my notes",
-];
+import { useEffect, useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
+
+import AISidebar from "../components/ai/AISidebar.jsx";
+import AIHeader from "../components/ai/AIHeader.jsx";
+import AIChat from "../components/ai/AIChat.jsx";
+
+import {
+  fetchConversations,
+} from "../store/aiActions.js";
 
 const AIPage = () => {
+  const dispatch = useDispatch();
+
+  const [isSidebarOpen, setIsSidebarOpen] =
+    useState(false);
+
+  const {
+    conversations,
+    currentConversationId,
+  } = useSelector((state) => state.ai);
+
+  // ===============================
+  // Load Conversations
+  // ===============================
+
+  useEffect(() => {
+    dispatch(fetchConversations());
+  }, [dispatch]);
+
+  // ===============================
+  // Current Conversation
+  // ===============================
+
+  const currentConversation = conversations.find(
+    (conversation) =>
+      conversation.id === currentConversationId
+  );
+
+  const currentTitle =
+    currentConversation?.title || "AI Assistant";
+
   return (
-    <div>
-      <PageHeader
-        eyebrow="Assistant"
-        title="AI study partner"
-        subtitle="Ask for summaries, quizzes, or a clearer explanation."
+    <div className="flex h-full min-h-0 overflow-hidden bg-base-100">
+      {/* Sidebar */}
+
+      <AISidebar
+        isOpen={isSidebarOpen}
+        onClose={() => setIsSidebarOpen(false)}
       />
 
-      <div className="panel p-6">
-        <div className="mb-5 flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
-            <Sparkles size={18} />
-          </div>
-          <div>
-            <p className="text-sm font-semibold">Ready when you are</p>
-            <p className="text-xs text-neutral/50">No chat history yet</p>
-          </div>
-        </div>
+      {/* Main Area */}
 
-        <div className="flex flex-col gap-3 sm:flex-row">
-          <input
-            type="text"
-            placeholder="Ask anything about your subject..."
-            className="input input-bordered h-11 flex-1 rounded-xl border-base-300 bg-canvas focus:border-primary/40 focus:outline-none focus:ring-2 focus:ring-primary/15"
-          />
-          <button type="button" className="btn btn-primary h-11 rounded-xl">
-            Ask
-            <ArrowUpRight size={16} />
-          </button>
-        </div>
+      <main className="flex min-w-0 flex-1 flex-col">
+        <AIHeader
+          title={currentTitle}
+          onMenuClick={() => setIsSidebarOpen(true)}
+        />
 
-        <div className="mt-5 flex flex-wrap gap-2">
-          {prompts.map((prompt) => (
-            <button
-              key={prompt}
-              type="button"
-              className="rounded-xl border border-base-300 bg-base-100 px-3 py-1.5 text-xs font-medium text-neutral/60 transition-colors duration-150 hover:border-primary/25 hover:text-primary"
-            >
-              {prompt}
-            </button>
-          ))}
+        <div className="min-h-0 flex-1">
+          <AIChat />
         </div>
-      </div>
+      </main>
     </div>
   );
 };

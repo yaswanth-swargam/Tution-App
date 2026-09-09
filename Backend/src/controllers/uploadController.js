@@ -54,11 +54,11 @@ export const uploadFile = async (req, res) => {
       uploadStream.end(req.file.buffer);
     });
 
-    console.log("Cloudinary upload successful:", {
-      url: uploadResult.secure_url,
-      public_id: uploadResult.public_id,
-      resource_type: resourceType,
-    });
+    // console.log("Cloudinary upload successful:", {
+    //   url: uploadResult.secure_url,
+    //   public_id: uploadResult.public_id,
+    //   resource_type: resourceType,
+    // });
 
     return res.status(200).json({
       message: "File uploaded successfully",

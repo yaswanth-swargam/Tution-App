@@ -5,7 +5,6 @@ import generateToken from '../lib/utils.js'
 
 export const signup=async (req,res)=>{
     const {fullName,email,password}=req.body
-    console.log(req.body)
     try{
         if(!fullName || !email || !password){
             return res.status(400).json({
@@ -56,7 +55,6 @@ export const signup=async (req,res)=>{
 
 export const signin=async (req,res)=>{
     const {email,password}=req.body;
-    console.log(req.body)
     if(!email || !password){
         return res.status(400).json({
             message: 'Email and Password are required'
