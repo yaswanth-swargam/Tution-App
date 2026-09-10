@@ -5,7 +5,7 @@ import AIEmptyState from "./AIEmptyState.jsx";
 import AIMessage from "./AIMessage.jsx";
 import AILoading from "./AILoading.jsx";
 import AIInput from "./AIInput.jsx";
-
+import { addMessage } from "../../store/aiSlice.js";
 import {
   sendMessage,
   createConversation,
@@ -36,14 +36,17 @@ const AIChat = () => {
         container.scrollTop -
         container.clientHeight;
 
-      shouldAutoScrollRef.current = distanceFromBottom < 100;
+      shouldAutoScrollRef.current =
+        distanceFromBottom < 100;
     };
 
     container.addEventListener("scroll", handleScroll);
 
-    return () => {
-      container.removeEventListener("scroll", handleScroll);
-    };
+    return () =>
+      container.removeEventListener(
+        "scroll",
+        handleScroll
+      );
   }, []);
 
   useEffect(() => {
@@ -56,25 +59,37 @@ const AIChat = () => {
   }, [messages, isSendingMessage]);
 
   const handleSendMessage = async (message) => {
-    let conversationId = currentConversationId;
+  let conversationId = currentConversationId;
 
-    if (!conversationId) {
-      const conversation = await dispatch(createConversation());
-
-      if (!conversation) return;
-
-      conversationId = conversation.id;
-    }
-
-    shouldAutoScrollRef.current = true;
-
-    await dispatch(
-      sendMessage({
-        conversationId,
-        message,
-      })
+  if (!conversationId) {
+    const conversation = await dispatch(
+      createConversation()
     );
-  };
+
+    if (!conversation) return;
+
+    conversationId = conversation.id;
+  }
+
+  shouldAutoScrollRef.current = true;
+
+  // Show user message immediately
+  dispatch(
+    addMessage({
+      id: `local-${Date.now()}`,
+      role: "user",
+      content: message,
+    })
+  );
+
+  // Ask backend for AI response
+  await dispatch(
+    sendMessage({
+      conversationId,
+      message,
+    })
+  );
+};
 
   const handlePromptClick = (prompt) => {
     handleSendMessage(prompt);
@@ -95,7 +110,9 @@ const AIChat = () => {
         className="min-h-0 flex-1 overflow-y-auto"
       >
         {messages.length === 0 ? (
-          <AIEmptyState onPromptClick={handlePromptClick} />
+          <AIEmptyState
+            onPromptClick={handlePromptClick}
+          />
         ) : (
           <div className="mx-auto w-full max-w-4xl py-4">
             {messages.map((message) => (

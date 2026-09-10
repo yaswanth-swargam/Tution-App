@@ -7,6 +7,44 @@ import {processConversationMessage} from '../services/ai/ai.service.js'
  */
 
 
+const getAIErrorDetails = (error) => {
+  if (
+    error?.status === 429 ||
+    error?.code === "rate_limit_exceeded"
+  ) {
+    return {
+      status: 429,
+      message:
+        "Genie is temporarily unavailable because the AI request limit has been reached. Please try again later.",
+    };
+  }
+
+  if (
+    error?.name === "APIConnectionTimeoutError" ||
+    error?.code === "ETIMEDOUT" ||
+    error?.message?.toLowerCase().includes("timed out")
+  ) {
+    return {
+      status: 504,
+      message:
+        "Genie took too long to respond. Please try again.",
+    };
+  }
+
+  if (error?.name === "APIConnectionError") {
+    return {
+      status: 503,
+      message:
+        "Genie is temporarily unavailable. Please try again.",
+    };
+  }
+
+  return {
+    status: 500,
+    message: "Failed to process AI message.",
+  };
+};
+
 export const sendConversationMessage = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -22,10 +60,10 @@ export const sendConversationMessage = async (req, res) => {
 
     const trimmedMessage = message.trim();
 
-    /*
-     * First verify that this conversation
-     * actually belongs to the logged-in user.
-     */
+    // --------------------------------------------------
+    // 1. Verify conversation belongs to current user
+    // --------------------------------------------------
+
     const [conversationRows] = await pool.query(
       `
       SELECT
@@ -45,9 +83,10 @@ export const sendConversationMessage = async (req, res) => {
       });
     }
 
-    /*
-     * Save the user's message.
-     */
+    // --------------------------------------------------
+    // 2. Save USER message
+    // --------------------------------------------------
+
     const [userMessageResult] = await pool.query(
       `
       INSERT INTO ai_messages (
@@ -60,10 +99,16 @@ export const sendConversationMessage = async (req, res) => {
       [conversationId, trimmedMessage]
     );
 
-    /*
-     * Load conversation history AFTER saving
-     * the latest user message.
-     */
+    const userMessage = {
+      id: userMessageResult.insertId,
+      role: "user",
+      content: trimmedMessage,
+    };
+
+    // --------------------------------------------------
+    // 3. Get conversation history
+    // --------------------------------------------------
+
     const [conversationHistory] = await pool.query(
       `
       SELECT
@@ -78,19 +123,20 @@ export const sendConversationMessage = async (req, res) => {
       [conversationId]
     );
 
-    /*
-     * Generate AI response using the full
-     * conversation context.
-     */
+    // --------------------------------------------------
+    // 4. Ask AI
+    // --------------------------------------------------
+
     const result = await processConversationMessage({
       user: req.user,
       message: trimmedMessage,
       conversationHistory,
     });
 
-    /*
-     * Save AI response.
-     */
+    // --------------------------------------------------
+    // 5. Save AI response
+    // --------------------------------------------------
+
     const [assistantMessageResult] = await pool.query(
       `
       INSERT INTO ai_messages (
@@ -103,10 +149,16 @@ export const sendConversationMessage = async (req, res) => {
       [conversationId, result.answer]
     );
 
-    /*
-     * Automatically generate a title from
-     * the first user message.
-     */
+    const assistantMessage = {
+      id: assistantMessageResult.insertId,
+      role: "assistant",
+      content: result.answer,
+    };
+
+    // --------------------------------------------------
+    // 6. Update conversation title
+    // --------------------------------------------------
+
     if (conversationRows[0].title === "New chat") {
       const title =
         trimmedMessage.length > 50
@@ -124,10 +176,10 @@ export const sendConversationMessage = async (req, res) => {
       );
     }
 
-    /*
-     * Touch updated_at so the conversation
-     * moves to the top of Recent Chats.
-     */
+    // --------------------------------------------------
+    // 7. Update conversation timestamp
+    // --------------------------------------------------
+
     await pool.query(
       `
       UPDATE ai_conversations
@@ -138,18 +190,14 @@ export const sendConversationMessage = async (req, res) => {
       [conversationId, userId]
     );
 
+    // --------------------------------------------------
+    // 8. Return normal JSON response
+    // --------------------------------------------------
+
     return res.status(200).json({
       success: true,
-      userMessage: {
-        id: userMessageResult.insertId,
-        role: "user",
-        content: trimmedMessage,
-      },
-      message: {
-        id: assistantMessageResult.insertId,
-        role: "assistant",
-        content: result.answer,
-      },
+      userMessage,
+      message: assistantMessage,
       intent: result.intent,
       activityRange: result.activityRange,
     });
@@ -159,9 +207,11 @@ export const sendConversationMessage = async (req, res) => {
       error
     );
 
-    return res.status(500).json({
+    const aiError = getAIErrorDetails(error);
+
+    return res.status(aiError.status).json({
       success: false,
-      message: "Failed to process AI message",
+      message: aiError.message,
     });
   }
 };

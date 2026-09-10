@@ -3,7 +3,7 @@ import {
   BookOpen,
   Lightbulb,
   MessageSquare,
-  Sparkles,
+  
 } from "lucide-react";
 
 const AIEmptyState = ({ onPromptClick }) => {
@@ -30,9 +30,13 @@ const AIEmptyState = ({ onPromptClick }) => {
 
   return (
     <div className="flex h-full flex-col items-center justify-center px-4 py-10">
-      <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-        <Sparkles size={28} />
-      </div>
+      <div className="mb-5 flex h-20 w-20 items-center justify-center overflow-hidden rounded-2xl bg-primary/10">
+      <img
+        src="/genie.png"
+        alt="Genie"
+        className="h-full w-full object-contain"
+      />
+    </div>
 
       <h2 className="text-2xl font-semibold">
         How can I help you?

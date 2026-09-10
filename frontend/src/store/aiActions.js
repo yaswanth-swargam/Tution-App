@@ -13,6 +13,7 @@ import {
   setLoadingConversation,
   setSendingMessage,
   setAIError,
+  addMessage
 } from "./aiSlice.js";
 
 // ===============================
@@ -110,34 +111,46 @@ export const sendMessage =
     try {
       const res = await axiosInstance.post(
         `/ai/conversations/${conversationId}/messages`,
-        {
-          message,
-        }
+        { message }
       );
 
-      // Reload the current conversation
-      // so Redux gets the latest messages from DB.
-      await dispatch(fetchConversation(conversationId));
+      // Add ONLY the AI response here.
+      // The user message is already displayed by AIChat.
+      dispatch(addMessage(res.data.message));
 
-      // Reload conversations so the sidebar gets
-      // the latest title and updated_at.
+      // Refresh conversation list so title/timestamp update
       await dispatch(fetchConversations());
 
       return res.data;
     } catch (error) {
-      const message =
-        error.response?.data?.message ||
-        "Failed to send message";
+      const status = error.response?.status;
 
-      dispatch(setAIError(message));
-      toast.error(message);
+      let errorMessage =
+        error.response?.data?.message ||
+        "Failed to get a response from Genie.";
+
+      if (status === 429) {
+        errorMessage =
+          "Genie is temporarily unavailable because the AI request limit has been reached. Please try again later.";
+      } else if (status === 504) {
+        errorMessage =
+          "Genie took too long to respond. Please try again.";
+      } else if (status === 503) {
+        errorMessage =
+          "Genie is temporarily unavailable. Please try again.";
+      } else if (!error.response) {
+        errorMessage =
+          "Unable to reach Genie. Please check your connection and try again.";
+      }
+
+      dispatch(setAIError(errorMessage));
+      toast.error(errorMessage);
 
       return null;
     } finally {
       dispatch(setSendingMessage(false));
     }
   };
-
 // ===============================
 // Delete Conversation
 // ===============================

@@ -1,7 +1,6 @@
 
 import { useState } from "react";
 import {
-  Bot,
   MessageSquare,
   Plus,
   Pencil,
@@ -119,19 +118,23 @@ const AISidebar = ({ isOpen, onClose }) => {
 
       <div className="flex h-16 shrink-0 items-center justify-between border-b border-base-300 px-4">
         <div className="flex items-center gap-2">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-primary-content">
-            <Bot size={19} />
-          </div>
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center">
+  <img
+    src="/genie.png"
+    alt="Genie"
+    className="h-10 w-10 object-contain"
+  />
+</div>
 
-          <div>
-            <h2 className="text-sm font-semibold">
-              Genie
-            </h2>
+<div>
+  <h2 className="text-sm font-semibold">
+    Genie
+  </h2>
 
-            <p className="text-xs text-base-content/50">
-              Your learning companion
-            </p>
-          </div>
+  <p className="text-xs text-base-content/50">
+    Your learning companion
+  </p>
+</div>
         </div>
 
         {/* Mobile Close */}
@@ -150,11 +153,11 @@ const AISidebar = ({ isOpen, onClose }) => {
           New Chat
       =============================== */}
 
-      <div className="p-3">
+      <div className="p-2">
         <button
           type="button"
           onClick={handleNewConversation}
-          className="btn btn-primary w-full gap-2"
+          className="btn btn-primary w-full gap-3"
         >
           <Plus size={17} />
           New Chat
