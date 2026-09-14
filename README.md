@@ -18,6 +18,8 @@
 
 TuitionApp replaces the scattered WhatsApp groups, USB drives, and paper-based workflows that most small institutes still rely on. Admins manage sections, upload study materials, and communicate with students — all in one place. Students get a clean, focused interface to access their materials and chat with their batch in real time.
 
+The platform also integrates an **LLM-powered AI Study Partner** to provide students with AI-assisted learning support based on their study materials.
+
 ---
 
 ## Features
@@ -50,8 +52,11 @@ TuitionApp replaces the scattered WhatsApp groups, USB drives, and paper-based w
 - Email notifications via **Nodemailer** (Gmail SMTP)
 - Mark individual or all notifications as read
 
-### 🤖 AI Study Partner *(UI ready, integration upcoming)*
-- Prompt-based interface for chapter summaries, quiz generation, and note explanation
+### 🤖 AI Study Partner
+- Integrated **LLM API** for AI-powered study assistance
+- Students can interact with the AI through a prompt-based interface
+- Provides contextual responses based on uploaded course materials
+- Supports learning workflows such as chapter summaries, quiz generation, and note explanation
 
 ---
 
@@ -68,13 +73,14 @@ TuitionApp replaces the scattered WhatsApp groups, USB drives, and paper-based w
 | Auth | JWT + bcrypt + httpOnly cookies |
 | File Storage | Cloudinary + Multer |
 | Email | Nodemailer (Gmail SMTP) |
+| AI Integration | LLM API |
 | State Management | Redux Toolkit (4 slices: auth, chat, studyMaterial, notifications) |
 
 ---
 
 ## Architecture Overview
 
-```
+```text
 TuitionApp/
 ├── Backend/
 │   └── src/
@@ -98,135 +104,3 @@ TuitionApp/
         ├── routes/             # ProtectedRoute, AdminRoute, PublicRoute guards
         └── store/              # Redux slices + async thunks
                                 # (auth, chat, studyMaterial, notifications)
-```
-
----
-
-## Getting Started
-
-### Prerequisites
-- Node.js v18+
-- MySQL 8+
-- Cloudinary account (free tier works)
-- Gmail account with App Password enabled
-
-### 1. Clone the repository
-
-```bash
-git clone https://github.com/yaswanth-swargam/Tution-App.git
-cd Tution-App
-```
-
-### 2. Backend setup
-
-```bash
-cd Backend
-npm install
-```
-
-Create a `.env` file inside `Backend/`:
-
-```env
-PORT=5001
-NODE_ENV=development
-
-# Database
-DB_HOST=localhost
-DB_USER=root
-DB_PASSWORD=your_mysql_password
-DB_NAME=tuitionapp
-
-# Auth
-JWT_SECRET=your_jwt_secret_key
-
-# Client
-CLIENT_URL=http://localhost:5173
-
-# Cloudinary
-CLOUDINARY_CLOUD_NAME=your_cloud_name
-CLOUDINARY_API_KEY=your_api_key
-CLOUDINARY_API_SECRET=your_api_secret
-
-# Email
-EMAIL_USER=your_gmail@gmail.com
-EMAIL_PASSWORD=your_gmail_app_password
-```
-
-```bash
-npm run dev     # starts with nodemon on port 5001
-```
-
-### 3. Frontend setup
-
-```bash
-cd ../frontend
-npm install
-npm run dev     # starts on http://localhost:5173
-```
-
----
-
-## API Reference
-
-### Auth
-| Method | Endpoint | Access |
-|--------|----------|--------|
-| POST | `/api/auth/signup` | Public |
-| POST | `/api/auth/signin` | Public |
-| POST | `/api/auth/logout` | Protected |
-| GET | `/api/auth/checkAuth` | Protected |
-
-### Sections
-| Method | Endpoint | Access |
-|--------|----------|--------|
-| GET | `/api/sections` | Protected |
-| POST | `/api/sections` | Admin |
-| PUT | `/api/sections/:id` | Admin |
-| DELETE | `/api/sections/:id` | Admin |
-| GET | `/api/sections/:id/members` | Protected |
-| POST | `/api/sections/:id/members` | Admin |
-| DELETE | `/api/sections/:id/members/:userId` | Admin |
-
-### Messaging
-| Method | Endpoint | Access |
-|--------|----------|--------|
-| GET | `/api/messages/:sectionId` | Protected |
-| POST | `/api/messages/:sectionId` | Protected |
-| GET | `/api/direct-messages/:userId` | Protected |
-| POST | `/api/direct-messages/:userId` | Protected |
-
-### Study Materials
-| Method | Endpoint | Access |
-|--------|----------|--------|
-| GET | `/api/study-materials/:sectionId` | Protected |
-| POST | `/api/study-materials/:sectionId` | Admin |
-| DELETE | `/api/study-materials/:id` | Admin |
-
-### Notifications
-| Method | Endpoint | Access |
-|--------|----------|--------|
-| GET | `/api/notifications` | Protected |
-| PATCH | `/api/notifications/:id/read` | Protected |
-| PATCH | `/api/notifications/read-all` | Protected |
-
----
-
-## Design Decisions Worth Noting
-
-**Why httpOnly cookies for JWT?**
-localStorage is accessible via JavaScript and vulnerable to XSS. httpOnly cookies are invisible to client-side scripts — even if malicious JS runs on the page, it cannot read the token.
-
-**Why MySQL over MongoDB?**
-The data relationships in this app (users → sections → members → messages → materials) are inherently relational. MySQL with proper foreign keys and JOIN queries gives stronger consistency guarantees than document-based storage for this use case.
-
-**Why Redux Toolkit with 4 separate slices?**
-Keeping auth, chat, study materials, and notifications in isolated slices prevents the state from becoming a monolith. Each slice owns its own loading/error states, making debugging and testing significantly easier.
-
----
-
-## Author
-
-**Yaswanth Swargam** — Full Stack Developer & B.Tech CSE Student, RGUKT Ongole
-
-[![GitHub](https://img.shields.io/badge/GitHub-yaswanth--swargam-181717?style=flat&logo=github)](https://github.com/yaswanth-swargam)
-[![LinkedIn](https://img.shields.io/badge/LinkedIn-yaswanth--swargam-0A66C2?style=flat&logo=linkedin)](https://linkedin.com/in/yaswanth-swargam)
