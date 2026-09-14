@@ -5,7 +5,6 @@ import {
   setAuthUser,
   setCheckingAuth,
   setLoggingIn,
-  setSigningUp,
   setUpdatingProfile,
 } from "./authSlice";
 
