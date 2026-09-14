@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 
 import MemberList from "./MemberList";
-import AddStudentModal from "./AddStudentModal";
+import AddStudentModal from "./Addstudentmodal.jsx";
 
 const GroupInfoDrawer = ({
   section,
