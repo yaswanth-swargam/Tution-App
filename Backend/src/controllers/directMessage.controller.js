@@ -424,7 +424,7 @@ export const getDirectConversations =
           FROM users u
 
           WHERE
-            u.role = "admin"
+            u.role = 'admin'
             AND u.id != ?
 
           ORDER BY

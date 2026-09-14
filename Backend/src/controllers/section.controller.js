@@ -46,7 +46,7 @@ export const getSectionById = async (req, res) => {
     }
 
     // STUDENT
-    if (role === "student") {
+    if (role === 'student') {
       const [membership] = await pool.query(
         `SELECT *
          FROM section_members
@@ -339,7 +339,7 @@ export const getAvailableStudents = async (req, res) => {
         profile_pic,
         role
       FROM users
-      WHERE role = "student"
+      WHERE role = 'student'
         AND id NOT IN (
           SELECT user_id
           FROM section_members
