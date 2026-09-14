@@ -2,7 +2,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { useSelector } from "react-redux";
 
 import DashboardLayout from "../layouts/DashboardLayout";
-
+import AdminDashboard from '../pages/AdminDashboard'
 import CommunityPage from "../pages/CommunityPage";
 import MaterialsPage from "../pages/MaterialsPage";
 import AIPage from "../pages/AIPage";
@@ -80,6 +80,15 @@ const AppRouter = () => {
         <Route
           path="profile"
           element={<ProfilePage />}
+        />
+
+        <Route
+          path="admin"
+          element={
+            <AdminRoute>
+              <AdminDashboard />
+            </AdminRoute>
+          }
         />
 
         <Route

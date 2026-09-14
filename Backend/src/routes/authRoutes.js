@@ -4,10 +4,8 @@ import protectRoute from '../middleware/auth.middleware.js'
 import adminOnly from '../middleware/admin.middleware.js'
 const router=express.Router()
 
-router.post('/signup',signup)
 router.post('/signin',signin)
 router.post('/logout',logout)
-router.post('/bootstrap-admin',bootstrapAdmin)
 router.get('/checkAuth',protectRoute,checkAuth)
 router.put('/updateProfile',protectRoute,updateProfile)
 
@@ -16,6 +14,6 @@ router.post(
     protectRoute,
     adminOnly,
     createUser
-)
+);
 
 export default router;

@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { Link } from "react-router-dom";
 
 import { login } from "../store/authActions";
 
@@ -101,15 +100,6 @@ const LoginPage = () => {
           </button>
         </form>
 
-        <p className="mt-6 text-center text-sm text-slate-500">
-          Don't have an account?{" "}
-          <Link
-            to="/signup"
-            className="font-medium text-primary hover:underline"
-          >
-            Create an account
-          </Link>
-        </p>
       </div>
     </div>
   );

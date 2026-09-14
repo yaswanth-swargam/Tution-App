@@ -8,42 +8,37 @@ export const createUser = async (req, res) => {
     const { fullName, email, password, role } = req.body;
 
     try {
-        // Validate input
         if (!fullName || !email || !password || !role) {
             return res.status(400).json({
-                message: "All fields are required",
+                message: "All fields are required"
             });
         }
 
-        // Only these roles are allowed
         if (!["admin", "student"].includes(role)) {
             return res.status(400).json({
-                message: "Invalid role",
+                message: "Invalid role"
             });
         }
 
         if (password.length < 6) {
             return res.status(400).json({
-                message: "Password must be at least 6 characters",
+                message: "Password must be at least 6 characters"
             });
         }
 
-        // Check existing user
-        const [existingUsers] = await pool.query(
-            `SELECT id FROM users WHERE email = ?`,
+        const [existingUser] = await pool.query(
+            "SELECT id FROM users WHERE email = ?",
             [email]
         );
 
-        if (existingUsers.length > 0) {
+        if (existingUser.length > 0) {
             return res.status(409).json({
-                message: "User with this email already exists",
+                message: "User already exists"
             });
         }
 
-        // Hash password
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        // Create user
         const [result] = await pool.query(
             `INSERT INTO users
                 (full_name, email, password, role)
@@ -51,8 +46,7 @@ export const createUser = async (req, res) => {
             [fullName, email, hashedPassword, role]
         );
 
-        // Get created user
-        const [users] = await pool.query(
+        const [user] = await pool.query(
             `SELECT
                 id,
                 full_name,
@@ -67,149 +61,21 @@ export const createUser = async (req, res) => {
         );
 
         return res.status(201).json({
-            message: "User created successfully",
-            user: mapUser(users[0]),
+            message: `${role} created successfully`,
+            user: mapUser(user[0])
         });
 
     } catch (error) {
         console.error("Create User Error:", error);
 
         return res.status(500).json({
-            message: "Internal Server Error",
+            message: "Internal Server Error"
         });
     }
 };
 
 
-export const bootstrapAdmin = async (req, res) => {
-  try {
-    // Check if an admin already exists
-    const [admins] = await pool.query(
-      `SELECT id FROM users WHERE role = 'admin' LIMIT 1`
-    );
 
-    if (admins.length > 0) {
-      return res.status(409).json({
-        message: "An admin account already exists",
-      });
-    }
-
-    const { fullName, email, password } = req.body;
-
-    if (!fullName || !email || !password) {
-      return res.status(400).json({
-        message: "Full name, email and password are required",
-      });
-    }
-
-    if (password.length < 6) {
-      return res.status(400).json({
-        message: "Password must be at least 6 characters",
-      });
-    }
-
-    // Check email
-    const [users] = await pool.query(
-      `SELECT id FROM users WHERE email = ?`,
-      [email]
-    );
-
-    if (users.length > 0) {
-      return res.status(409).json({
-        message: "User with this email already exists",
-      });
-    }
-
-    // Hash password
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    // Create admin
-    const [result] = await pool.query(
-      `INSERT INTO users 
-        (full_name, email, password, role)
-       VALUES (?, ?, ?, ?)`,
-      [fullName, email, hashedPassword, "admin"]
-    );
-
-    // Generate JWT
-    generateToken(result.insertId, res);
-
-    const [newAdmin] = await pool.query(
-      `SELECT 
-        id,
-        full_name,
-        email,
-        profile_pic,
-        role,
-        created_at,
-        updated_at
-       FROM users
-       WHERE id = ?`,
-      [result.insertId]
-    );
-
-    return res.status(201).json({
-      message: "Admin created successfully",
-      user: mapUser(newAdmin[0]),
-    });
-
-  } catch (error) {
-    console.error("Bootstrap Admin Error:", error);
-
-    return res.status(500).json({
-      message: "Internal Server Error",
-    });
-  }
-};
-
-export const signup=async (req,res)=>{
-    const {fullName,email,password}=req.body
-    try{
-        if(!fullName || !email || !password){
-            return res.status(400).json({
-                message: "All fields are required"
-            })
-        }
-
-        if(password.length < 6){
-            return res.status(400).json({
-                message: "Password must be ateast 6 characters"
-            })
-        }
-
-        //checking if user already exists
-        const [rows]=await pool.query('select id from users where email=?',[email])
-        if(rows.length>0){
-            return res.status(409).json({
-                message: 'User already exists'
-            })
-        }
-
-        //Hash password
-        const hashedPass=await bcrypt.hash(password,10)
-
-        //insert user
-        const [result] = await pool.query(
-            `INSERT INTO users (full_name, email, password, role)
-                VALUES (?, ?, ?, ?)`,
-            [fullName, email, hashedPass, "student"]
-);
-        generateToken(result.insertId,res)
-
-        const [user]=await pool.query(`select id,full_name,email,profile_pic,role,created_at from users where id=?`,[result.insertId])
-
-        return res.status(201).json({
-            message: "User registered succesfully",
-            user: mapUser(user[0])
-        })
-    }
-    catch(e){
-        console.error(e)
-        return res.status(500).json({
-            message: "Internal Server Error"
-        })
-    }
-}
 
 
 export const signin=async (req,res)=>{

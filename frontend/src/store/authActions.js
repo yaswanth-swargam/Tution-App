@@ -45,24 +45,6 @@ export const login = (data) => async (dispatch) => {
   }
 };
 
-// ===============================
-// Signup
-// ===============================
-export const signup = (data) => async (dispatch) => {
-  dispatch(setSigningUp(true));
-
-  try {
-    const res = await axiosInstance.post("/auth/signup", data);
-
-    dispatch(setAuthUser(res.data));
-
-    toast.success("Account created successfully");
-  } catch (error) {
-    toast.error(error.response?.data?.message || "Signup failed");
-  } finally {
-    dispatch(setSigningUp(false));
-  }
-};
 
 // ===============================
 // Logout
@@ -95,5 +77,25 @@ export const updateProfile = (data) => async (dispatch) => {
     toast.error(error.response?.data?.message || "Update failed");
   } finally {
     dispatch(setUpdatingProfile(false));
+  }
+};
+
+
+// ===============================
+// Create User - Admin Only
+// ===============================
+export const createUser = (data) => async (dispatch) => {
+  try {
+    const res = await axiosInstance.post("/auth/create-user", data);
+
+    toast.success(res.data.message);
+
+    return res.data;
+  } catch (error) {
+    toast.error(
+      error.response?.data?.message || "Failed to create user"
+    );
+
+    throw error;
   }
 };
