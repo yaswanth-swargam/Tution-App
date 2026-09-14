@@ -5,6 +5,7 @@ import {
   Bell,
   User,
   Settings,
+  ShieldCheck,
 } from "lucide-react";
 
 import { ROUTES } from "./routes";
@@ -41,13 +42,21 @@ export const navigation = [
 
   {
     id: 5,
+    label: "Admin Dashboard",
+    path: ROUTES.ADMIN,
+    icon: ShieldCheck,
+    roles: ["admin"],
+  },
+
+  {
+    id: 6,
     label: "Profile",
     path: ROUTES.PROFILE,
     icon: User,
   },
 
   {
-    id: 6,
+    id: 7,
     label: "Settings",
     path: ROUTES.SETTINGS,
     icon: Settings,

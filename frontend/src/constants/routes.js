@@ -2,7 +2,6 @@ export const ROUTES = {
   // Public Routes
   HOME: "/",
   LOGIN: "/login",
-  SIGNUP: "/signup",
 
   // Dashboard
   DASHBOARD: "/dashboard",
@@ -11,7 +10,8 @@ export const ROUTES = {
   COMMUNITY: "/dashboard/community",
   MATERIALS: "/dashboard/materials",
   AI: "/dashboard/ai",
+  NOTIFICATIONS: "/dashboard/notifications",
+  ADMIN: "/dashboard/admin",
   PROFILE: "/dashboard/profile",
   SETTINGS: "/dashboard/settings",
-  NOTIFICATIONS: "/dashboard/notifications",
 };
