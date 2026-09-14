@@ -3,6 +3,88 @@ import bcrypt from 'bcrypt'
 import {mapUser} from '../utils/userMapper.js'
 import generateToken from '../lib/utils.js'
 
+
+export const bootstrapAdmin = async (req, res) => {
+  try {
+    // Check if an admin already exists
+    const [admins] = await pool.query(
+      `SELECT id FROM users WHERE role = 'admin' LIMIT 1`
+    );
+
+    if (admins.length > 0) {
+      return res.status(409).json({
+        message: "An admin account already exists",
+      });
+    }
+
+    const { fullName, email, password } = req.body;
+
+    if (!fullName || !email || !password) {
+      return res.status(400).json({
+        message: "Full name, email and password are required",
+      });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({
+        message: "Password must be at least 6 characters",
+      });
+    }
+
+    // Check email
+    const [users] = await pool.query(
+      `SELECT id FROM users WHERE email = ?`,
+      [email]
+    );
+
+    if (users.length > 0) {
+      return res.status(409).json({
+        message: "User with this email already exists",
+      });
+    }
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Create admin
+    const [result] = await pool.query(
+      `INSERT INTO users 
+        (full_name, email, password, role)
+       VALUES (?, ?, ?, ?)`,
+      [fullName, email, hashedPassword, "admin"]
+    );
+
+    // Generate JWT
+    generateToken(result.insertId, res);
+
+    const [newAdmin] = await pool.query(
+      `SELECT 
+        id,
+        full_name,
+        email,
+        profile_pic,
+        role,
+        created_at,
+        updated_at
+       FROM users
+       WHERE id = ?`,
+      [result.insertId]
+    );
+
+    return res.status(201).json({
+      message: "Admin created successfully",
+      user: mapUser(newAdmin[0]),
+    });
+
+  } catch (error) {
+    console.error("Bootstrap Admin Error:", error);
+
+    return res.status(500).json({
+      message: "Internal Server Error",
+    });
+  }
+};
+
 export const signup=async (req,res)=>{
     const {fullName,email,password}=req.body
     try{
